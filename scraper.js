@@ -99,7 +99,8 @@ async function fetchSitemap(db) {
         db.prepare('INSERT INTO scraping_state (id, last_sitemap_index, total_sitemaps) VALUES (1, 0, ?)').run(productSitemaps.length);
         state = { last_sitemap_index: 0, total_sitemaps: productSitemaps.length };
       } else if (state.total_sitemaps !== productSitemaps.length) {
-        // Total sitemaps changed, reset
+        // Total sitemaps changed, reset to start over
+        console.log(`⚠️  Sitemap count changed from ${state.total_sitemaps} to ${productSitemaps.length}. Resetting progress to start from beginning.`);
         db.prepare('UPDATE scraping_state SET total_sitemaps = ?, last_sitemap_index = 0 WHERE id = 1').run(productSitemaps.length);
         state.total_sitemaps = productSitemaps.length;
         state.last_sitemap_index = 0;
@@ -110,6 +111,8 @@ async function fetchSitemap(db) {
       
       console.log(`Processing sitemaps ${startIndex + 1} to ${endIndex} of ${productSitemaps.length}`);
       console.log(`Fetching ${endIndex - startIndex} product sitemaps...`);
+      
+      let failedSitemaps = 0;
       
       // Fetch product sitemaps in this batch
       for (let i = startIndex; i < endIndex; i++) {
@@ -137,8 +140,13 @@ async function fetchSitemap(db) {
           }
         } catch (error) {
           console.error(`Error fetching sitemap ${sitemapUrl}:`, error.message);
-          // Continue with other sitemaps
+          failedSitemaps++;
+          // Continue with other sitemaps - failed ones will be retried in next cycle
         }
+      }
+      
+      if (failedSitemaps > 0) {
+        console.log(`⚠️  ${failedSitemaps} sitemap(s) failed to fetch and will be retried in next cycle`);
       }
       
       // Update state for next run
