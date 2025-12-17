@@ -4,8 +4,11 @@ const xml2js = require('xml2js');
 const Database = require('better-sqlite3');
 const path = require('path');
 
+// Configuration
 const SITEMAP_URL = 'https://www.unimart.com/sitemap.xml';
 const DB_PATH = path.join(__dirname, 'prices.db');
+const MAX_PRODUCTS_PER_RUN = 100; // Maximum products to scrape per run
+const REQUEST_DELAY_MS = 1000; // Delay between requests in milliseconds
 
 // Initialize database
 function initDatabase() {
@@ -75,7 +78,11 @@ async function scrapeProduct(url) {
     const $ = cheerio.load(response.data);
     
     // Try to extract product information
-    // Note: These selectors are guesses and may need adjustment based on actual site structure
+    // NOTE: These selectors are generic patterns and may need to be adjusted
+    // based on the actual HTML structure of unimart.com product pages.
+    // To customize for the actual site:
+    // 1. Inspect a product page HTML
+    // 2. Update the selectors below to match the actual price/title elements
     let title = $('h1').first().text().trim() || 
                 $('meta[property="og:title"]').attr('content') ||
                 $('title').text().trim();
@@ -178,7 +185,7 @@ async function main() {
   console.log(`Found ${productUrls.length} potential product URLs`);
   
   // Scrape products (limit to avoid overwhelming the site)
-  const limit = Math.min(productUrls.length, 100); // Process max 100 products per run
+  const limit = Math.min(productUrls.length, MAX_PRODUCTS_PER_RUN);
   console.log(`Processing ${limit} products...`);
   
   for (let i = 0; i < limit; i++) {
@@ -190,7 +197,7 @@ async function main() {
     }
     
     // Be nice to the server - add delay between requests
-    await new Promise(resolve => setTimeout(resolve, 1000));
+    await new Promise(resolve => setTimeout(resolve, REQUEST_DELAY_MS));
   }
   
   console.log('Scraping complete!');

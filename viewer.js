@@ -134,7 +134,7 @@ function displayProducts(products) {
             <div class="product-item" onclick="toggleProductDetails(${product.id})">
                 <div class="product-title">${escapeHtml(product.title)}</div>
                 <div class="product-info">
-                    <div class="current-price">${product.currency} ${product.currentPrice?.toFixed(2) || 'N/A'}</div>
+                    <div class="current-price">${product.currency} ${typeof product.currentPrice === 'number' ? product.currentPrice.toFixed(2) : 'N/A'}</div>
                     ${priceChange}
                 </div>
                 <div class="product-url">${escapeHtml(product.url)}</div>
@@ -168,10 +168,11 @@ function toggleProductDetails(productId) {
         
         history.forEach(([price, currency, date]) => {
             const formattedDate = new Date(date).toLocaleString();
+            const formattedPrice = typeof price === 'number' ? price.toFixed(2) : 'N/A';
             historyHtml += `
                 <li>
                     <span>${formattedDate}</span>
-                    <span><strong>${currency} ${price.toFixed(2)}</strong></span>
+                    <span><strong>${currency} ${formattedPrice}</strong></span>
                 </li>
             `;
         });
