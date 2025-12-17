@@ -32,6 +32,7 @@ try {
         CREATE TABLE products (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             url TEXT UNIQUE NOT NULL,
+            sku TEXT,
             title TEXT,
             last_scraped DATETIME
         );
@@ -40,7 +41,7 @@ try {
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             product_id INTEGER NOT NULL,
             price REAL,
-            currency TEXT DEFAULT 'USD',
+            currency TEXT DEFAULT 'CRC',
             scraped_at DATETIME DEFAULT CURRENT_TIMESTAMP,
             FOREIGN KEY (product_id) REFERENCES products(id)
         );
@@ -49,6 +50,7 @@ try {
     // Test data
     const testProduct = {
         url: 'https://example.com/product/test',
+        sku: 'TEST123',
         title: 'Test Product',
         price: 99.99,
         currency: 'USD'

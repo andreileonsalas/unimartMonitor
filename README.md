@@ -108,15 +108,18 @@ Your price tracker will be available at: `https://andreileonsalas.github.io/unim
 
 ### Products Table
 - `id`: Primary key
-- `url`: Product URL (unique)
+- `url`: Product URL (unique identifier)
+- `sku`: Product SKU from Unimart (indexed for fast search)
 - `title`: Product title
 - `last_scraped`: Last scrape timestamp
+
+**Note:** Both URL and SKU are stored to maintain dual reference. If Unimart changes the URL or SKU, historical data is preserved.
 
 ### Prices Table
 - `id`: Primary key
 - `product_id`: Foreign key to products
 - `price`: Product price
-- `currency`: Currency code (USD, EUR, etc.)
+- `currency`: Currency code (CRC for Costa Rican Colón, USD, EUR, etc.)
 - `scraped_at`: Timestamp of scrape
 
 ## Configuration
@@ -125,9 +128,9 @@ Your price tracker will be available at: `https://andreileonsalas.github.io/unim
 
 Edit `scraper.js` to customize:
 
-- **Product limit**: Change `const limit = Math.min(productUrls.length, 100);` to scrape more/fewer products
-- **Delay**: Adjust `setTimeout(resolve, 1000)` to change delay between requests
-- **URL filters**: Modify the `productUrls.filter()` logic to target specific product patterns
+- **Product limit**: Change `const MAX_PRODUCTS_PER_RUN = 50;` to scrape more/fewer products per run
+- **Delay**: Adjust `const REQUEST_DELAY_MS = 1000;` to change delay between requests (in milliseconds)
+- **URL filters**: The scraper automatically filters for `/products/` URLs from Unimart
 
 ### Workflow Schedule
 

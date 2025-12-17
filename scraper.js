@@ -18,6 +18,7 @@ function initDatabase() {
     CREATE TABLE IF NOT EXISTS products (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       url TEXT UNIQUE NOT NULL,
+      sku TEXT,
       title TEXT,
       last_scraped DATETIME
     );
@@ -33,6 +34,7 @@ function initDatabase() {
 
     CREATE INDEX IF NOT EXISTS idx_product_id ON prices(product_id);
     CREATE INDEX IF NOT EXISTS idx_scraped_at ON prices(scraped_at);
+    CREATE INDEX IF NOT EXISTS idx_sku ON products(sku);
   `);
   
   return db;
@@ -103,6 +105,20 @@ async function scrapeProduct(url) {
                 $('meta[property="og:title"]').attr('content') ||
                 $('title').text().trim();
     
+    // Extract SKU from script tags (Shopify stores product data in JSON)
+    let sku = null;
+    const scripts = $('script').toArray();
+    for (const script of scripts) {
+      const content = $(script).html() || '';
+      if (content.includes('product') && content.includes('sku')) {
+        const skuMatch = content.match(/"sku"\s*:\s*"([^"]+)"/);
+        if (skuMatch) {
+          sku = skuMatch[1];
+          break;
+        }
+      }
+    }
+    
     // For unimart.com, prices are in .money elements
     let priceText = $('.money').first().text().trim() ||
                     $('.price').first().text() ||
@@ -129,6 +145,7 @@ async function scrapeProduct(url) {
     
     return {
       url,
+      sku,
       title: title || url,
       price,
       currency
@@ -146,16 +163,17 @@ function saveProductPrice(db, productData) {
   }
   
   try {
-    // Insert or update product
+    // Insert or update product (URL is unique, but we also save/update SKU)
     const insertProduct = db.prepare(`
-      INSERT INTO products (url, title, last_scraped)
-      VALUES (?, ?, datetime('now'))
+      INSERT INTO products (url, sku, title, last_scraped)
+      VALUES (?, ?, ?, datetime('now'))
       ON CONFLICT(url) DO UPDATE SET
+        sku = excluded.sku,
         title = excluded.title,
         last_scraped = excluded.last_scraped
     `);
     
-    const result = insertProduct.run(productData.url, productData.title);
+    const result = insertProduct.run(productData.url, productData.sku, productData.title);
     
     // Get product ID
     const getProduct = db.prepare('SELECT id FROM products WHERE url = ?');
@@ -169,7 +187,8 @@ function saveProductPrice(db, productData) {
       `);
       
       insertPrice.run(product.id, productData.price, productData.currency);
-      console.log(`Saved: ${productData.title} - ${productData.currency} ${productData.price}`);
+      const skuInfo = productData.sku ? ` (SKU: ${productData.sku})` : '';
+      console.log(`Saved: ${productData.title}${skuInfo} - ${productData.currency} ${productData.price}`);
     }
   } catch (error) {
     console.error('Error saving to database:', error.message);

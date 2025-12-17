@@ -60,6 +60,7 @@ function displayData() {
             SELECT 
                 p.id,
                 p.url,
+                p.sku,
                 p.title,
                 pr.price as current_price,
                 pr.currency,
@@ -91,11 +92,12 @@ function displayData() {
         allProducts = productsQuery[0].values.map(row => ({
             id: row[0],
             url: row[1],
-            title: row[2],
-            currentPrice: row[3],
-            currency: row[4],
-            lastScraped: row[5],
-            firstPrice: row[6]
+            sku: row[2],
+            title: row[3],
+            currentPrice: row[4],
+            currency: row[5],
+            lastScraped: row[6],
+            firstPrice: row[7]
         }));
 
         displayProducts(allProducts);
@@ -133,6 +135,7 @@ function displayProducts(products) {
         return `
             <div class="product-item" onclick="toggleProductDetails(${product.id})">
                 <div class="product-title">${escapeHtml(product.title)}</div>
+                ${product.sku ? `<div class="product-sku">SKU: ${escapeHtml(product.sku)}</div>` : ''}
                 <div class="product-info">
                     <div class="current-price">${product.currency} ${typeof product.currentPrice === 'number' ? product.currentPrice.toFixed(2) : 'N/A'}</div>
                     ${priceChange}
@@ -194,7 +197,8 @@ function handleSearch(event) {
 
     const filtered = allProducts.filter(product => 
         product.title.toLowerCase().includes(searchTerm) ||
-        product.url.toLowerCase().includes(searchTerm)
+        product.url.toLowerCase().includes(searchTerm) ||
+        (product.sku && product.sku.toLowerCase().includes(searchTerm))
     );
 
     displayProducts(filtered);
