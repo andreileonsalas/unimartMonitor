@@ -9,6 +9,8 @@ on:
 jobs:
   scrape:
     runs-on: ubuntu-latest
+    permissions:
+      contents: write  # Required to commit and push database changes
     
     steps:
       - name: Checkout repository
