@@ -10,8 +10,10 @@ const path = require('path');
 // 🔧 Si Unimart cambia la URL del sitemap, actualiza esta constante:
 const SITEMAP_URL = 'https://www.unimart.com/sitemap.xml';
 const DB_PATH = path.join(__dirname, 'prices.db');
-const MAX_PRODUCTS_PER_RUN = 50; // Maximum products to scrape per run
+const MAX_PRODUCTS_PER_RUN = 50; // Maximum products to scrape per run (processes incrementally)
 const REQUEST_DELAY_MS = 1000; // Delay between requests in milliseconds
+const SITEMAP_DELAY_MS = 500; // Delay between sitemap fetches
+const MAX_SITEMAPS_PER_RUN = 100; // Maximum sitemaps to fetch per run (for incremental processing)
 
 // Initialize database
 function initDatabase() {
@@ -35,6 +37,13 @@ function initDatabase() {
       FOREIGN KEY (product_id) REFERENCES products(id)
     );
 
+    CREATE TABLE IF NOT EXISTS scraping_state (
+      id INTEGER PRIMARY KEY CHECK (id = 1),
+      last_sitemap_index INTEGER DEFAULT 0,
+      total_sitemaps INTEGER DEFAULT 0,
+      last_updated DATETIME DEFAULT CURRENT_TIMESTAMP
+    );
+
     CREATE INDEX IF NOT EXISTS idx_product_id ON prices(product_id);
     CREATE INDEX IF NOT EXISTS idx_scraped_at ON prices(scraped_at);
     CREATE INDEX IF NOT EXISTS idx_sku ON products(sku);
@@ -53,52 +62,109 @@ function initDatabase() {
 // ✅ Product Sitemaps: Los primeros 1,228 son de productos (/products/)
 // ✅ Otros Sitemaps: Los últimos contienen collections, articles, blogs (NO productos)
 // ✅ Estructura Uniforme: Todos los product sitemaps tienen la misma estructura
-// ✅ Usar el primero es SEGURO: No hay diferencia con otros product sitemaps
+// ✅ Productos pueden aparecer en múltiples sitemaps (se deduplican por URL)
+// ✅ Procesamiento incremental: procesa sitemaps en lotes para completar en tiempo razonable
 //
 // SI UNIMART CAMBIA:
-// - Estructura del sitemap index -> Ajusta líneas 58-74
-// - URL de product sitemaps -> Ajusta línea 62 (actualmente usa [0])
-// - Formato XML -> Ajusta parser en líneas 52, 66
-async function fetchSitemap() {
+// - Estructura del sitemap index -> Ajusta esta función
+// - URL de product sitemaps -> Ajusta el filtro de '/products/'
+// - Formato XML -> Ajusta parser
+async function fetchSitemap(db) {
   try {
     console.log('Fetching sitemap index from:', SITEMAP_URL);
     const response = await axios.get(SITEMAP_URL, { timeout: 10000 });
     const parser = new xml2js.Parser();
     const result = await parser.parseStringPromise(response.data);
     
-    const urls = [];
+    // Use a Set to deduplicate URLs (products can appear in multiple sitemaps)
+    const urlSet = new Set();
     
     // Check if this is a sitemap index (contains references to other sitemaps)
     if (result.sitemapindex && result.sitemapindex.sitemap) {
       console.log('Found sitemap index with', result.sitemapindex.sitemap.length, 'sitemaps');
       
-      // 🔧 IMPORTANTE: Actualmente usa el PRIMER sitemap de productos
-      // Todos los product sitemaps tienen la misma estructura (verificado)
-      // Si quieres scrape de más productos, cambia [0] por un loop
-      const firstSitemapUrl = result.sitemapindex.sitemap[0].loc[0];
-      console.log('Fetching product sitemap:', firstSitemapUrl);
+      // Filter for product sitemaps only
+      const productSitemaps = result.sitemapindex.sitemap.filter(s => 
+        s.loc && s.loc[0] && s.loc[0].includes('/products/')
+      );
       
-      const sitemapResponse = await axios.get(firstSitemapUrl, { timeout: 10000 });
-      const sitemapResult = await parser.parseStringPromise(sitemapResponse.data);
+      console.log(`Found ${productSitemaps.length} product sitemaps`);
       
-      if (sitemapResult.urlset && sitemapResult.urlset.url) {
-        for (const entry of sitemapResult.urlset.url) {
-          if (entry.loc && entry.loc[0]) {
-            urls.push(entry.loc[0]);
+      // Get scraping state to resume from where we left off
+      const getState = db.prepare('SELECT last_sitemap_index, total_sitemaps FROM scraping_state WHERE id = 1');
+      let state = getState.get();
+      
+      if (!state) {
+        // Initialize state
+        db.prepare('INSERT INTO scraping_state (id, last_sitemap_index, total_sitemaps) VALUES (1, 0, ?)').run(productSitemaps.length);
+        state = { last_sitemap_index: 0, total_sitemaps: productSitemaps.length };
+      } else if (state.total_sitemaps !== productSitemaps.length) {
+        // Total sitemaps changed, reset
+        db.prepare('UPDATE scraping_state SET total_sitemaps = ?, last_sitemap_index = 0 WHERE id = 1').run(productSitemaps.length);
+        state.total_sitemaps = productSitemaps.length;
+        state.last_sitemap_index = 0;
+      }
+      
+      const startIndex = state.last_sitemap_index;
+      const endIndex = Math.min(startIndex + MAX_SITEMAPS_PER_RUN, productSitemaps.length);
+      
+      console.log(`Processing sitemaps ${startIndex + 1} to ${endIndex} of ${productSitemaps.length}`);
+      console.log(`Fetching ${endIndex - startIndex} product sitemaps...`);
+      
+      // Fetch product sitemaps in this batch
+      for (let i = startIndex; i < endIndex; i++) {
+        const sitemapUrl = productSitemaps[i].loc[0];
+        
+        try {
+          if ((i - startIndex) > 0 && (i - startIndex) % 20 === 0) {
+            console.log(`Batch progress: ${i - startIndex}/${endIndex - startIndex} sitemaps processed...`);
           }
+          
+          const sitemapResponse = await axios.get(sitemapUrl, { timeout: 10000 });
+          const sitemapResult = await parser.parseStringPromise(sitemapResponse.data);
+          
+          if (sitemapResult.urlset && sitemapResult.urlset.url) {
+            for (const entry of sitemapResult.urlset.url) {
+              if (entry.loc && entry.loc[0]) {
+                urlSet.add(entry.loc[0]); // Set automatically deduplicates
+              }
+            }
+          }
+          
+          // Be nice to the server - delay between sitemap fetches
+          if (i < endIndex - 1) {
+            await new Promise(resolve => setTimeout(resolve, SITEMAP_DELAY_MS));
+          }
+        } catch (error) {
+          console.error(`Error fetching sitemap ${sitemapUrl}:`, error.message);
+          // Continue with other sitemaps
         }
       }
+      
+      // Update state for next run
+      const nextIndex = endIndex >= productSitemaps.length ? 0 : endIndex; // Reset to 0 if we reached the end
+      db.prepare('UPDATE scraping_state SET last_sitemap_index = ?, last_updated = datetime(\'now\') WHERE id = 1').run(nextIndex);
+      
+      if (nextIndex === 0) {
+        console.log(`✅ Completed full cycle of all ${productSitemaps.length} sitemaps. Starting over on next run.`);
+      } else {
+        console.log(`Next run will start from sitemap ${nextIndex + 1}/${productSitemaps.length}`);
+      }
+      
+      console.log(`Fetched ${endIndex - startIndex} sitemaps. Found ${urlSet.size} unique product URLs in this batch.`);
     } 
     // Direct urlset (fallback si no es sitemap index)
     else if (result.urlset && result.urlset.url) {
       for (const entry of result.urlset.url) {
         if (entry.loc && entry.loc[0]) {
-          urls.push(entry.loc[0]);
+          urlSet.add(entry.loc[0]);
         }
       }
     }
     
-    console.log(`Found ${urls.length} product URLs`);
+    // Convert Set to Array
+    const urls = Array.from(urlSet);
+    console.log(`Total unique product URLs to process: ${urls.length}`);
     return urls;
   } catch (error) {
     console.error('Error fetching sitemap:', error.message);
@@ -236,14 +302,15 @@ function saveProductPrice(db, productData) {
 // Main scraping function
 async function main() {
   console.log('Starting Unimart price scraper...');
+  console.log('='.repeat(70));
   
   const db = initDatabase();
   console.log('Database initialized');
   
-  const urls = await fetchSitemap();
+  const urls = await fetchSitemap(db);
   
   if (urls.length === 0) {
-    console.log('No URLs found. Exiting.');
+    console.log('No URLs found in this batch. Exiting.');
     db.close();
     return;
   }
@@ -253,26 +320,74 @@ async function main() {
     url.includes('/products/')
   );
   
-  console.log(`Found ${productUrls.length} product URLs`);
+  console.log(`Found ${productUrls.length} unique product URLs in this batch`);
   
-  // Scrape products (limit to avoid overwhelming the site)
-  const limit = Math.min(productUrls.length, MAX_PRODUCTS_PER_RUN);
-  console.log(`Processing ${limit} products...`);
+  // Get already scraped URLs from database to prioritize unscraped products
+  const scrapedUrls = new Map(); // Map of URL -> last_scraped date
+  const getScrapedUrls = db.prepare('SELECT url, last_scraped FROM products');
+  const scrapedProducts = getScrapedUrls.all();
+  
+  for (const product of scrapedProducts) {
+    scrapedUrls.set(product.url, product.last_scraped);
+  }
+  
+  console.log(`Total products in database: ${scrapedUrls.size}`);
+  
+  // Prioritize: first unscraped products, then oldest scraped ones
+  const unscrapedUrls = productUrls.filter(url => !scrapedUrls.has(url));
+  const alreadyScrapedUrls = productUrls.filter(url => scrapedUrls.has(url));
+  
+  console.log(`New products in this batch: ${unscrapedUrls.length}`);
+  console.log(`Previously tracked products in this batch: ${alreadyScrapedUrls.length}`);
+  
+  // Combine: prioritize new products, then update old ones
+  const urlsToScrape = [...unscrapedUrls, ...alreadyScrapedUrls];
+  
+  // Scrape products (limit per run to be respectful to the server)
+  const limit = Math.min(urlsToScrape.length, MAX_PRODUCTS_PER_RUN);
+  console.log(`\nProcessing ${limit} products in this run...`);
+  console.log('='.repeat(70));
+  
+  let successCount = 0;
+  let errorCount = 0;
   
   for (let i = 0; i < limit; i++) {
-    const url = productUrls[i];
+    const url = urlsToScrape[i];
     const productData = await scrapeProduct(url);
     
     if (productData) {
       saveProductPrice(db, productData);
+      successCount++;
+    } else {
+      errorCount++;
+    }
+    
+    // Progress update every 10 products
+    if ((i + 1) % 10 === 0) {
+      console.log(`Progress: ${i + 1}/${limit} products processed (${successCount} successful, ${errorCount} errors)`);
     }
     
     // Be nice to the server - add delay between requests
-    await new Promise(resolve => setTimeout(resolve, REQUEST_DELAY_MS));
+    if (i < limit - 1) {
+      await new Promise(resolve => setTimeout(resolve, REQUEST_DELAY_MS));
+    }
   }
   
-  console.log('Scraping complete!');
+  // Get final statistics
+  const totalProducts = db.prepare('SELECT COUNT(*) as count FROM products').get().count;
+  const totalPrices = db.prepare('SELECT COUNT(*) as count FROM prices').get().count;
+  
+  console.log('\n' + '='.repeat(70));
+  console.log('SCRAPING SUMMARY');
+  console.log('='.repeat(70));
+  console.log(`Products processed this run: ${limit} (${successCount} successful, ${errorCount} errors)`);
+  console.log(`Total products in database: ${totalProducts}`);
+  console.log(`Total price records: ${totalPrices}`);
+  console.log(`Remaining products in this batch: ${Math.max(0, urlsToScrape.length - limit)}`);
+  console.log('='.repeat(70));
+  
   db.close();
+  console.log('\n✅ Scraping complete!');
 }
 
 // Run if called directly
