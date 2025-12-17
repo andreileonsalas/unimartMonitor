@@ -31,7 +31,7 @@ A lightweight price tracking application for unimart.com products, similar to Ca
 
 ### Prerequisites
 
-- Node.js 18 or higher
+- Node.js 20 or higher (requerido para el scraper)
 - npm
 
 ### Installation
@@ -47,7 +47,7 @@ cd unimartMonitor
 npm install
 ```
 
-### Running Locally
+### Running the Scraper
 
 To run the scraper manually:
 
@@ -58,26 +58,130 @@ npm run scrape
 This will:
 - Fetch the sitemap from unimart.com
 - Extract product URLs
-- Scrape prices from up to 100 products
+- Scrape prices from up to 50 products
 - Save data to `prices.db`
 
-### Viewing the Data
+## 🌐 Cómo Ver la Aplicación (Sin GitHub Pages)
 
-To view the tracked prices:
+### ✨ Opción 1: Ver Directo desde GitHub (MÁS FÁCIL - SIN DESCARGAR NADA)
 
-1. Start a local web server (Python example):
+Usa estos servicios que renderizan HTML directamente desde GitHub:
+
+#### **🚀 Opción A: Raw.githack.com (RECOMENDADO)**
+```
+https://raw.githack.com/andreileonsalas/unimartMonitor/main/index.html
+```
+- ✅ Muy rápido
+- ✅ Con CDN
+- ✅ Actualización automática
+
+#### **🚀 Opción B: HTMLPreview.github.io**
+```
+https://htmlpreview.github.io/?https://github.com/andreileonsalas/unimartMonitor/blob/main/index.html
+```
+- ✅ Servicio oficial de GitHub
+- ✅ Sin configuración
+
+**¿Cómo funciona?** Estos servicios descargan tu HTML y la base de datos `prices.db` directamente desde GitHub y los sirven con los headers correctos para que funcione en el navegador. 
+
+**¿Es seguro?** Sí, porque tanto el HTML como el archivo `prices.db` ya son públicos en tu repositorio de GitHub. Cualquiera puede descargarlos.
+
+**Actualización automática**: Cada vez que el GitHub Action actualice `prices.db` y haga commit, estos links mostrarán los datos más recientes automáticamente (puede tardar 1-2 minutos en actualizar el caché).
+
+### ✨ Opción 2: Con Python (RECOMENDADO para uso local)
+
+Si tienes Python instalado (viene pre-instalado en Mac/Linux):
+
 ```bash
+# Entra a la carpeta del proyecto
+cd unimartMonitor
+
+# Inicia el servidor
 python -m http.server 8000
+
+# O en Python 2:
+python -m SimpleHTTPServer 8000
 ```
 
-Or using Node.js:
+Luego abre tu navegador en: **http://localhost:8000**
+
+### ✨ Opción 3: Con Node.js
+
+Si prefieres usar Node.js:
+
 ```bash
-npx http-server
+# Opción A: Con http-server (más rápido)
+npx http-server -p 8000
+
+# Opción B: Con live-server (se recarga automáticamente)
+npx live-server --port=8000
 ```
 
-2. Open your browser to `http://localhost:8000`
+Luego abre tu navegador en: **http://localhost:8000**
 
-3. The viewer will load the SQLite database and display all tracked products
+### ✨ Opción 4: Con Visual Studio Code (SÚPER FÁCIL)
+
+1. **Instala la extensión "Live Server"**:
+   - Abre VS Code
+   - Ve a Extensions (Ctrl+Shift+X o Cmd+Shift+X)
+   - Busca "Live Server" de Ritwick Dey
+   - Haz clic en "Install"
+
+2. **Abre el proyecto**:
+   - Abre la carpeta `unimartMonitor` en VS Code
+
+3. **Inicia el servidor**:
+   - Haz clic derecho en `index.html`
+   - Selecciona "Open with Live Server"
+   - ¡Listo! Se abrirá automáticamente en tu navegador
+
+### ✨ Opción 5: En cPanel / Hosting Web
+
+Si tienes un hosting con cPanel:
+
+1. **Sube estos archivos a `public_html`**:
+   ```
+   index.html
+   viewer.js
+   prices.db
+   ```
+
+2. **Cómo subir**:
+   - Entra a cPanel → File Manager
+   - Navega a `public_html`
+   - Haz clic en "Upload"
+   - Arrastra los 3 archivos mencionados
+   - ¡Listo!
+
+3. **Accede a tu sitio**:
+   - `http://tudominio.com/index.html`
+   - O simplemente `http://tudominio.com/` si renombras `index.html`
+
+4. **Actualizar precios**:
+   - Cada vez que el GitHub Action actualice `prices.db`
+   - Descarga el nuevo `prices.db` del repositorio
+   - Súbelo a tu cPanel (reemplaza el anterior)
+
+### ✨ Opción 6: Con PHP Built-in Server
+
+Si tienes PHP instalado:
+
+```bash
+php -S localhost:8000
+```
+
+Luego abre: **http://localhost:8000**
+
+## 📸 Preview de la Aplicación
+
+![Unimart Price Tracker](https://github.com/user-attachments/assets/356c3b3a-a560-4088-9c20-be243f8eff19)
+
+La aplicación muestra:
+- 📊 Estadísticas totales (productos, registros, última actualización)
+- 🔍 Buscador en tiempo real
+- 💰 Precios actuales con moneda
+- 📈 Historial de cambios de precio
+- 🎨 Interfaz moderna y responsiva
 
 ## Automated Daily Tracking
 
