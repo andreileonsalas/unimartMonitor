@@ -1,0 +1,23 @@
+{
+  "name": "unimart-monitor",
+  "version": "1.0.0",
+  "description": "Track unimart.com prices like camelcamelcamel",
+  "main": "scraper.js",
+  "scripts": {
+    "scrape": "node scraper.js",
+    "test": "echo \"No tests yet\" && exit 0"
+  },
+  "keywords": [
+    "price",
+    "tracker",
+    "unimart"
+  ],
+  "author": "",
+  "license": "MIT",
+  "dependencies": {
+    "axios": "^1.6.2",
+    "better-sqlite3": "^9.2.2",
+    "cheerio": "^1.0.0-rc.12",
+    "xml2js": "^0.6.2"
+  }
+}
