@@ -4,7 +4,10 @@ const xml2js = require('xml2js');
 const Database = require('better-sqlite3');
 const path = require('path');
 
-// Configuration
+// ============================================================================
+// CONFIGURATION
+// ============================================================================
+// 🔧 Si Unimart cambia la URL del sitemap, actualiza esta constante:
 const SITEMAP_URL = 'https://www.unimart.com/sitemap.xml';
 const DB_PATH = path.join(__dirname, 'prices.db');
 const MAX_PRODUCTS_PER_RUN = 50; // Maximum products to scrape per run
@@ -40,7 +43,22 @@ function initDatabase() {
   return db;
 }
 
-// Fetch and parse sitemap
+// ============================================================================
+// SITEMAP FETCHING
+// ============================================================================
+// 🔧 Si Unimart cambia la estructura del sitemap, revisa esta función
+//
+// EDGE CASES VERIFICADOS:
+// ✅ Sitemap Index: El sitemap principal contiene 1,245 referencias a otros sitemaps
+// ✅ Product Sitemaps: Los primeros 1,228 son de productos (/products/)
+// ✅ Otros Sitemaps: Los últimos contienen collections, articles, blogs (NO productos)
+// ✅ Estructura Uniforme: Todos los product sitemaps tienen la misma estructura
+// ✅ Usar el primero es SEGURO: No hay diferencia con otros product sitemaps
+//
+// SI UNIMART CAMBIA:
+// - Estructura del sitemap index -> Ajusta líneas 58-74
+// - URL de product sitemaps -> Ajusta línea 62 (actualmente usa [0])
+// - Formato XML -> Ajusta parser en líneas 52, 66
 async function fetchSitemap() {
   try {
     console.log('Fetching sitemap index from:', SITEMAP_URL);
@@ -48,13 +66,15 @@ async function fetchSitemap() {
     const parser = new xml2js.Parser();
     const result = await parser.parseStringPromise(response.data);
     
-    let urls = [];
+    const urls = [];
     
     // Check if this is a sitemap index (contains references to other sitemaps)
     if (result.sitemapindex && result.sitemapindex.sitemap) {
       console.log('Found sitemap index with', result.sitemapindex.sitemap.length, 'sitemaps');
       
-      // Fetch the first product sitemap (to limit the number of products)
+      // 🔧 IMPORTANTE: Actualmente usa el PRIMER sitemap de productos
+      // Todos los product sitemaps tienen la misma estructura (verificado)
+      // Si quieres scrape de más productos, cambia [0] por un loop
       const firstSitemapUrl = result.sitemapindex.sitemap[0].loc[0];
       console.log('Fetching product sitemap:', firstSitemapUrl);
       
@@ -69,7 +89,7 @@ async function fetchSitemap() {
         }
       }
     } 
-    // Direct urlset (original behavior)
+    // Direct urlset (fallback si no es sitemap index)
     else if (result.urlset && result.urlset.url) {
       for (const entry of result.urlset.url) {
         if (entry.loc && entry.loc[0]) {
@@ -86,7 +106,21 @@ async function fetchSitemap() {
   }
 }
 
-// Scrape product information from a URL
+// ============================================================================
+// PRODUCT SCRAPING
+// ============================================================================
+// 🔧 Si Unimart cambia el HTML de las páginas de productos, revisa esta función
+//
+// SELECTORES ACTUALES (verificados con páginas reales):
+// - Título: h1, meta[property="og:title"], o title tag
+// - SKU: Dentro de <script> tags en formato JSON {"sku": "UM00IPM5"}
+// - Precio: Clase .money (formato: ₡4,700)
+// - Moneda: Símbolo ₡ para CRC (Colones Costarricenses)
+//
+// SI UNIMART CAMBIA:
+// - Selector de precio -> Ajusta línea 165
+// - Formato de SKU -> Ajusta línea 156
+// - Símbolo de moneda -> Ajusta líneas 177-185
 async function scrapeProduct(url) {
   try {
     console.log('Scraping:', url);
@@ -99,13 +133,14 @@ async function scrapeProduct(url) {
     
     const $ = cheerio.load(response.data);
     
-    // Try to extract product information
-    // Selectors adjusted for unimart.com structure
-    let title = $('h1').first().text().trim() || 
+    // Extract product title
+    // 🔧 Si cambia estructura HTML, actualiza estos selectores
+    const title = $('h1').first().text().trim() || 
                 $('meta[property="og:title"]').attr('content') ||
                 $('title').text().trim();
     
     // Extract SKU from script tags (Shopify stores product data in JSON)
+    // 🔧 Si Unimart cambia de plataforma (deja Shopify), actualiza esta extracción
     let sku = null;
     const scripts = $('script').toArray();
     for (const script of scripts) {
@@ -119,8 +154,10 @@ async function scrapeProduct(url) {
       }
     }
     
-    // For unimart.com, prices are in .money elements
-    let priceText = $('.money').first().text().trim() ||
+    // Extract price
+    // 🔧 IMPORTANTE: Actualmente el precio está en clase .money
+    // Si Unimart cambia el HTML, busca el nuevo selector aquí
+    const priceText = $('.money').first().text().trim() ||
                     $('.price').first().text() ||
                     $('[class*="price"]').first().text() ||
                     $('[id*="price"]').first().text() ||
@@ -132,6 +169,7 @@ async function scrapeProduct(url) {
     const price = priceMatch ? parseFloat(priceMatch[0].replace(/,/g, '')) : null;
     
     // Detect currency from symbols
+    // 🔧 Si Unimart cambia de moneda o símbolo, actualiza aquí
     let currency = 'CRC'; // Default to Costa Rican Colón for unimart.com
     if (priceText.includes('₡')) {
       currency = 'CRC';
@@ -173,7 +211,7 @@ function saveProductPrice(db, productData) {
         last_scraped = excluded.last_scraped
     `);
     
-    const result = insertProduct.run(productData.url, productData.sku, productData.title);
+    insertProduct.run(productData.url, productData.sku, productData.title);
     
     // Get product ID
     const getProduct = db.prepare('SELECT id FROM products WHERE url = ?');

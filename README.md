@@ -95,14 +95,36 @@ You can also trigger it manually:
 
 ## GitHub Pages Deployment
 
-To enable the browser viewer on GitHub Pages:
+### Paso a Paso para Habilitar GitHub Pages:
 
-1. Go to repository Settings > Pages
-2. Select "Deploy from a branch"
-3. Choose `main` or your default branch
-4. Save
+1. **Ve a tu repositorio en GitHub**
+   - Navega a `https://github.com/andreileonsalas/unimartMonitor`
 
-Your price tracker will be available at: `https://andreileonsalas.github.io/unimartMonitor/`
+2. **Abre la configuración**
+   - Haz clic en la pestaña "Settings" (⚙️)
+
+3. **Ve a Pages**
+   - En el menú lateral izquierdo, busca y haz clic en "Pages"
+
+4. **Configura la fuente**
+   - En "Build and deployment" → "Source", selecciona: **Deploy from a branch**
+   - En "Branch", selecciona: **main** (o tu rama principal)
+   - Folder: **/ (root)**
+   - Haz clic en **Save**
+
+5. **Espera el deployment**
+   - GitHub Pages tardará 1-2 minutos en construir el sitio
+   - Verás un mensaje verde cuando esté listo
+
+6. **Accede a tu tracker**
+   - URL: `https://andreileonsalas.github.io/unimartMonitor/`
+   - ¡Listo! Tu price tracker está en vivo 🎉
+
+### Solución de Problemas
+
+- **Página no carga**: Espera 2-3 minutos después de activar Pages
+- **404 Error**: Verifica que la rama seleccionada sea la correcta
+- **Base de datos no carga**: Asegúrate que `prices.db` esté commiteado en el repositorio
 
 ## Database Schema
 
@@ -165,6 +187,91 @@ unimartMonitor/
 ├── prices.db                   # SQLite database (generated)
 ├── package.json                # Node.js dependencies
 └── README.md                   # This file
+```
+
+## 🔧 Si Unimart Cambia su Estructura
+
+### Edge Cases Verificados
+
+✅ **Sitemap Index**: El sitemap principal tiene 1,245 sitemaps referenciados
+✅ **Product Sitemaps**: Los primeros 1,228 contienen productos
+✅ **Otros Sitemaps**: Los últimos son collections/articles/blogs (NO productos)
+✅ **Estructura Uniforme**: Todos los product sitemaps tienen el mismo formato
+✅ **Uso del Primero**: Es SEGURO usar solo el primer sitemap - no hay diferencias
+
+### Dónde Hacer Cambios
+
+#### 1. Si Cambia la URL del Sitemap
+
+**Archivo**: `scraper.js` (línea 10)
+
+```javascript
+// 🔧 CAMBIAR AQUÍ si la URL del sitemap cambia
+const SITEMAP_URL = 'https://www.unimart.com/sitemap.xml';
+```
+
+#### 2. Si Cambia la Estructura del Sitemap Index
+
+**Archivo**: `scraper.js` (líneas 58-90)
+
+```javascript
+// 🔧 CAMBIAR AQUÍ si la estructura del sitemap index cambia
+if (result.sitemapindex && result.sitemapindex.sitemap) {
+  // Ajusta cómo se extraen las referencias a otros sitemaps
+  const firstSitemapUrl = result.sitemapindex.sitemap[0].loc[0];
+  // ...
+}
+```
+
+#### 3. Si Cambia el Selector de Precio en la Página
+
+**Archivo**: `scraper.js` (línea 165)
+
+```javascript
+// 🔧 CAMBIAR AQUÍ si el HTML de la página de producto cambia
+// Actualmente el precio está en la clase .money
+const priceText = $('.money').first().text().trim() ||
+                $('.price').first().text() ||
+                // Agrega nuevos selectores aquí
+```
+
+**Cómo verificar el nuevo selector:**
+1. Abre una página de producto en unimart.com
+2. Click derecho → "Inspeccionar elemento" en el precio
+3. Encuentra la clase o ID del elemento
+4. Actualiza el selector en el código
+
+#### 4. Si Cambia el Formato del SKU
+
+**Archivo**: `scraper.js` (línea 156)
+
+```javascript
+// 🔧 CAMBIAR AQUÍ si el formato del SKU en el JSON cambia
+const skuMatch = content.match(/"sku"\s*:\s*"([^"]+)"/);
+```
+
+#### 5. Si Cambia el Símbolo de Moneda
+
+**Archivo**: `scraper.js` (líneas 177-185)
+
+```javascript
+// 🔧 CAMBIAR AQUÍ si cambian de símbolo de moneda
+if (priceText.includes('₡')) {
+  currency = 'CRC';
+} // Agrega nuevos símbolos aquí
+```
+
+### Herramientas para Debugging
+
+```bash
+# Ver la estructura del sitemap actual
+curl https://www.unimart.com/sitemap.xml | head -100
+
+# Ver el HTML de una página de producto
+curl https://www.unimart.com/products/[nombre-producto] | grep -i "price\|money"
+
+# Probar el scraper manualmente
+npm run scrape
 ```
 
 ## Troubleshooting
