@@ -4,7 +4,73 @@ A lightweight price tracking application for unimart.com products, similar to Ca
 
 ## 🚀 Cómo Ver la Aplicación
 
-### 📱 Opción 1: Directamente desde tu Navegador (MÁS FÁCIL)
+### ⚠️ IMPORTANTE: Haz el Repositorio Público Primero
+
+Para usar las opciones online (GitHub Pages, Netlify), necesitas hacer el repositorio público:
+
+1. Ve a tu repositorio en GitHub: `https://github.com/andreileonsalas/unimartMonitor`
+2. Click en **Settings** (⚙️)
+3. Baja hasta el final de la página
+4. En la sección "Danger Zone", click en **Change visibility**
+5. Selecciona **Make public**
+6. Confirma escribiendo el nombre del repositorio
+
+**¿Por qué hacerlo público?**
+- GitHub Pages gratis solo funciona con repos públicos
+- Los datos ya son precios públicos de Unimart, no hay información sensible
+- Te permite compartir la aplicación con otros sin necesidad de dar acceso al repo
+
+---
+
+### 🌐 Opción 1: GitHub Pages (RECOMENDADO - Sin instalar nada)
+
+**⚠️ Requiere que el repositorio sea público primero (ver arriba)**
+
+**Activa GitHub Pages una sola vez y tendrás la aplicación disponible 24/7 en internet:**
+
+1. Asegúrate que el repo es público (ver instrucciones arriba)
+2. Ve a tu repositorio en GitHub
+3. Click en **Settings** (⚙️)
+4. En el menú izquierdo, click en **Pages**
+5. En "Build and deployment":
+   - **Source**: Deploy from a branch
+   - **Branch**: main
+   - **Folder**: / (root)
+6. Click en **Save**
+7. Espera 1-2 minutos
+
+**Tu aplicación estará disponible en:**
+```
+https://andreileonsalas.github.io/unimartMonitor/
+```
+
+✅ **Ventajas:**
+- Acceso desde cualquier dispositivo con internet
+- Se actualiza automáticamente cuando el GitHub Action actualiza los datos
+- No necesitas instalar nada en tu computadora
+- Es 100% GRATIS (no requiere pago)
+
+### 🌍 Opción 2: Netlify Drop (Arrastra y suelta - MUY FÁCIL)
+
+**✅ Funciona con repo público o privado**
+
+1. Ve a [https://app.netlify.com/drop](https://app.netlify.com/drop)
+2. Descarga estos 3 archivos de tu repositorio:
+   - `index.html`
+   - `viewer.js`
+   - `prices.db`
+3. Arrastra los 3 archivos a la zona de Netlify Drop
+4. ¡Listo! Te dará una URL como: `https://random-name-123.netlify.app`
+
+✅ **Ventajas:**
+- Sin cuenta necesaria (modo anónimo)
+- Súper rápido (arrastra y suelta)
+- Gratis
+- Funciona aunque el repo sea privado
+
+⚠️ **Nota:** Para actualizar los datos, necesitas volver a subir el archivo `prices.db` actualizado.
+
+### 📱 Opción 3: Directamente desde tu Navegador (Solo para probar)
 
 1. **Descarga solo estos 3 archivos del repositorio:**
    - `index.html`
