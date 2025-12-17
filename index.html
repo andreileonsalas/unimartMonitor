@@ -1,0 +1,714 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Unimart Price Monitor</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        header {
+            background: white;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            margin-bottom: 30px;
+            text-align: center;
+        }
+
+        h1 {
+            color: #333;
+            margin-bottom: 10px;
+        }
+
+        .subtitle {
+            color: #666;
+            font-size: 16px;
+        }
+
+        .load-section {
+            background: white;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            margin-bottom: 30px;
+            text-align: center;
+        }
+
+        .load-button {
+            background: #667eea;
+            color: white;
+            border: none;
+            padding: 15px 40px;
+            font-size: 16px;
+            border-radius: 5px;
+            cursor: pointer;
+            transition: background 0.3s;
+        }
+
+        .load-button:hover {
+            background: #5568d3;
+        }
+
+        .load-button:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+        }
+
+        .file-input {
+            margin: 10px 0;
+        }
+
+        #status {
+            margin-top: 15px;
+            padding: 10px;
+            border-radius: 5px;
+        }
+
+        .success {
+            background: #d4edda;
+            color: #155724;
+        }
+
+        .error {
+            background: #f8d7da;
+            color: #721c24;
+        }
+
+        .info {
+            background: #d1ecf1;
+            color: #0c5460;
+        }
+
+        .stats {
+            background: white;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            margin-bottom: 30px;
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 20px;
+        }
+
+        .stat-item {
+            text-align: center;
+            padding: 20px;
+            background: #f8f9fa;
+            border-radius: 8px;
+        }
+
+        .stat-number {
+            font-size: 36px;
+            font-weight: bold;
+            color: #667eea;
+        }
+
+        .stat-label {
+            color: #666;
+            margin-top: 5px;
+        }
+
+        .search-box {
+            background: white;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            margin-bottom: 30px;
+        }
+
+        .search-input {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #e0e0e0;
+            border-radius: 5px;
+            font-size: 16px;
+        }
+
+        .search-input:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+
+        .products-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+
+        .product-card {
+            background: white;
+            border-radius: 10px;
+            padding: 20px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            transition: transform 0.3s, box-shadow 0.3s;
+        }
+
+        .product-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 8px 12px rgba(0, 0, 0, 0.15);
+        }
+
+        .product-name {
+            font-size: 18px;
+            font-weight: bold;
+            color: #333;
+            margin-bottom: 10px;
+            line-height: 1.4;
+        }
+
+        .product-price {
+            font-size: 28px;
+            color: #667eea;
+            font-weight: bold;
+            margin: 15px 0;
+        }
+
+        .product-currency {
+            font-size: 18px;
+            color: #999;
+        }
+
+        .product-status {
+            display: inline-block;
+            padding: 5px 15px;
+            border-radius: 20px;
+            font-size: 14px;
+            font-weight: 600;
+            margin-bottom: 10px;
+        }
+
+        .available {
+            background: #d4edda;
+            color: #155724;
+        }
+
+        .unavailable {
+            background: #f8d7da;
+            color: #721c24;
+        }
+
+        .product-link {
+            color: #667eea;
+            text-decoration: none;
+            font-size: 14px;
+            word-break: break-all;
+        }
+
+        .product-link:hover {
+            text-decoration: underline;
+        }
+
+        .product-date {
+            color: #999;
+            font-size: 12px;
+            margin-top: 10px;
+        }
+
+        .price-history-btn {
+            background: #667eea;
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 5px;
+            cursor: pointer;
+            margin-top: 10px;
+            font-size: 14px;
+        }
+
+        .price-history-btn:hover {
+            background: #5568d3;
+        }
+
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 1000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.5);
+        }
+
+        .modal-content {
+            background-color: white;
+            margin: 5% auto;
+            padding: 30px;
+            border-radius: 10px;
+            max-width: 800px;
+            max-height: 80vh;
+            overflow-y: auto;
+        }
+
+        .close {
+            color: #aaa;
+            float: right;
+            font-size: 28px;
+            font-weight: bold;
+            cursor: pointer;
+        }
+
+        .close:hover {
+            color: #000;
+        }
+
+        .history-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+        }
+
+        .history-table th,
+        .history-table td {
+            padding: 12px;
+            text-align: left;
+            border-bottom: 1px solid #e0e0e0;
+        }
+
+        .history-table th {
+            background: #f8f9fa;
+            font-weight: 600;
+        }
+
+        .no-data {
+            text-align: center;
+            padding: 60px 20px;
+            color: #999;
+            font-size: 18px;
+        }
+
+        canvas {
+            max-width: 100%;
+            margin-top: 20px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>🛒 Unimart Price Monitor</h1>
+            <p class="subtitle">Track prices like CamelCamelCamel for Unimart.com</p>
+        </header>
+
+        <div class="load-section">
+            <h2>Load Price Database</h2>
+            <p style="margin: 15px 0;">Load the prices.db file to view price history</p>
+            <input type="file" id="dbFile" accept=".db" class="file-input">
+            <br>
+            <button onclick="loadRemoteDatabase()" class="load-button" id="loadRemoteBtn">
+                Load from Repository
+            </button>
+            <div id="status"></div>
+        </div>
+
+        <div id="statsSection" class="stats" style="display: none;">
+            <div class="stat-item">
+                <div class="stat-number" id="totalProducts">0</div>
+                <div class="stat-label">Total Products</div>
+            </div>
+            <div class="stat-item">
+                <div class="stat-number" id="totalPriceRecords">0</div>
+                <div class="stat-label">Price Records</div>
+            </div>
+            <div class="stat-item">
+                <div class="stat-number" id="lastUpdate">-</div>
+                <div class="stat-label">Last Updated</div>
+            </div>
+        </div>
+
+        <div id="searchSection" class="search-box" style="display: none;">
+            <input type="text" id="searchInput" class="search-input" placeholder="Search products...">
+        </div>
+
+        <div id="productsSection" class="products-grid"></div>
+        <div id="noData" class="no-data" style="display: none;">
+            No products found. Load a database to get started.
+        </div>
+    </div>
+
+    <div id="historyModal" class="modal">
+        <div class="modal-content">
+            <span class="close" onclick="closeModal()">&times;</span>
+            <h2 id="modalProductName">Price History</h2>
+            <canvas id="priceChart" width="400" height="200"></canvas>
+            <table class="history-table" id="historyTable">
+                <thead>
+                    <tr>
+                        <th>Date</th>
+                        <th>Price</th>
+                        <th>Status</th>
+                    </tr>
+                </thead>
+                <tbody id="historyTableBody"></tbody>
+            </table>
+        </div>
+    </div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/sql.js/1.8.0/sql-wasm.js"></script>
+    <script>
+        let db = null;
+        let allProducts = [];
+
+        // Initialize SQL.js
+        const initSqlJs = window.initSqlJs;
+
+        // Handle file input
+        document.getElementById('dbFile').addEventListener('change', function(e) {
+            const file = e.target.files[0];
+            if (file) {
+                loadDatabase(file);
+            }
+        });
+
+        // Load database from file
+        async function loadDatabase(file) {
+            showStatus('Loading database...', 'info');
+            
+            try {
+                const SQL = await initSqlJs({
+                    locateFile: file => `https://cdnjs.cloudflare.com/ajax/libs/sql.js/1.8.0/${file}`
+                });
+
+                const arrayBuffer = await file.arrayBuffer();
+                const uint8Array = new Uint8Array(arrayBuffer);
+                db = new SQL.Database(uint8Array);
+
+                showStatus('Database loaded successfully!', 'success');
+                loadProducts();
+            } catch (error) {
+                showStatus('Error loading database: ' + error.message, 'error');
+                console.error(error);
+            }
+        }
+
+        // Load database from remote URL (GitHub)
+        async function loadRemoteDatabase() {
+            const btn = document.getElementById('loadRemoteBtn');
+            btn.disabled = true;
+            btn.textContent = 'Loading...';
+            showStatus('Fetching database from repository...', 'info');
+
+            try {
+                const SQL = await initSqlJs({
+                    locateFile: file => `https://cdnjs.cloudflare.com/ajax/libs/sql.js/1.8.0/${file}`
+                });
+
+                // Try to load from the same repository
+                // GitHub serves raw files from the repo
+                const response = await fetch('prices.db');
+                
+                if (!response.ok) {
+                    throw new Error('Database file not found in repository');
+                }
+
+                const arrayBuffer = await response.arrayBuffer();
+                const uint8Array = new Uint8Array(arrayBuffer);
+                db = new SQL.Database(uint8Array);
+
+                showStatus('Database loaded successfully!', 'success');
+                loadProducts();
+            } catch (error) {
+                showStatus('Could not load remote database. Please upload a file instead. Error: ' + error.message, 'error');
+                console.error(error);
+            } finally {
+                btn.disabled = false;
+                btn.textContent = 'Load from Repository';
+            }
+        }
+
+        function showStatus(message, type) {
+            const statusDiv = document.getElementById('status');
+            statusDiv.textContent = message;
+            statusDiv.className = type;
+            statusDiv.style.display = 'block';
+        }
+
+        function loadProducts() {
+            if (!db) return;
+
+            try {
+                // Get all products with their latest price
+                const query = `
+                    SELECT p.*, 
+                           ph.price as current_price,
+                           ph.currency,
+                           ph.available,
+                           ph.checked_at
+                    FROM products p
+                    LEFT JOIN price_history ph ON p.id = ph.product_id
+                    WHERE ph.id = (
+                        SELECT id FROM price_history 
+                        WHERE product_id = p.id 
+                        ORDER BY checked_at DESC 
+                        LIMIT 1
+                    )
+                    ORDER BY p.last_checked DESC
+                `;
+
+                const result = db.exec(query);
+                
+                if (result.length > 0) {
+                    const columns = result[0].columns;
+                    const values = result[0].values;
+                    
+                    allProducts = values.map(row => {
+                        const product = {};
+                        columns.forEach((col, index) => {
+                            product[col] = row[index];
+                        });
+                        return product;
+                    });
+
+                    updateStats();
+                    displayProducts(allProducts);
+                } else {
+                    document.getElementById('noData').style.display = 'block';
+                }
+            } catch (error) {
+                showStatus('Error loading products: ' + error.message, 'error');
+                console.error(error);
+            }
+        }
+
+        function updateStats() {
+            try {
+                // Total products
+                const productsResult = db.exec('SELECT COUNT(*) as count FROM products');
+                const totalProducts = productsResult[0].values[0][0];
+                document.getElementById('totalProducts').textContent = totalProducts;
+
+                // Total price records
+                const recordsResult = db.exec('SELECT COUNT(*) as count FROM price_history');
+                const totalRecords = recordsResult[0].values[0][0];
+                document.getElementById('totalPriceRecords').textContent = totalRecords;
+
+                // Last update
+                const lastUpdateResult = db.exec('SELECT MAX(last_checked) as last_update FROM products');
+                const lastUpdate = lastUpdateResult[0].values[0][0];
+                if (lastUpdate) {
+                    const date = new Date(lastUpdate);
+                    document.getElementById('lastUpdate').textContent = date.toLocaleDateString();
+                }
+
+                document.getElementById('statsSection').style.display = 'grid';
+                document.getElementById('searchSection').style.display = 'block';
+            } catch (error) {
+                console.error('Error updating stats:', error);
+            }
+        }
+
+        function displayProducts(products) {
+            const container = document.getElementById('productsSection');
+            container.innerHTML = '';
+
+            if (products.length === 0) {
+                document.getElementById('noData').style.display = 'block';
+                return;
+            }
+
+            document.getElementById('noData').style.display = 'none';
+
+            products.forEach(product => {
+                const card = document.createElement('div');
+                card.className = 'product-card';
+                
+                const statusClass = product.available ? 'available' : 'unavailable';
+                const statusText = product.available ? 'In Stock' : 'Out of Stock';
+                const priceDisplay = product.current_price ? 
+                    `<div class="product-price">${product.currency || '$'}${parseFloat(product.current_price).toFixed(2)}</div>` :
+                    `<div class="product-price" style="color: #999;">No price data</div>`;
+
+                card.innerHTML = `
+                    <div class="product-status ${statusClass}">${statusText}</div>
+                    <div class="product-name">${escapeHtml(product.name)}</div>
+                    ${priceDisplay}
+                    <a href="${escapeHtml(product.url)}" target="_blank" class="product-link">View on Unimart →</a>
+                    <div class="product-date">Last checked: ${new Date(product.checked_at).toLocaleString()}</div>
+                    <button class="price-history-btn" onclick="showPriceHistory(${product.id}, '${escapeHtml(product.name)}')">
+                        View Price History
+                    </button>
+                `;
+                
+                container.appendChild(card);
+            });
+        }
+
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+
+        // Search functionality
+        document.getElementById('searchInput').addEventListener('input', function(e) {
+            const searchTerm = e.target.value.toLowerCase();
+            const filtered = allProducts.filter(product => 
+                product.name.toLowerCase().includes(searchTerm) ||
+                product.url.toLowerCase().includes(searchTerm)
+            );
+            displayProducts(filtered);
+        });
+
+        function showPriceHistory(productId, productName) {
+            try {
+                const query = `
+                    SELECT * FROM price_history 
+                    WHERE product_id = ${productId} 
+                    ORDER BY checked_at DESC
+                `;
+                
+                const result = db.exec(query);
+                
+                if (result.length > 0) {
+                    const columns = result[0].columns;
+                    const values = result[0].values;
+                    
+                    const history = values.map(row => {
+                        const record = {};
+                        columns.forEach((col, index) => {
+                            record[col] = row[index];
+                        });
+                        return record;
+                    });
+
+                    displayPriceHistory(productName, history);
+                }
+            } catch (error) {
+                console.error('Error loading price history:', error);
+            }
+        }
+
+        function displayPriceHistory(productName, history) {
+            document.getElementById('modalProductName').textContent = productName;
+            
+            // Populate table
+            const tbody = document.getElementById('historyTableBody');
+            tbody.innerHTML = '';
+            
+            history.forEach(record => {
+                const row = document.createElement('tr');
+                const statusClass = record.available ? 'available' : 'unavailable';
+                const statusText = record.available ? 'In Stock' : 'Out of Stock';
+                const priceText = record.price ? `${record.currency}${parseFloat(record.price).toFixed(2)}` : 'N/A';
+                
+                row.innerHTML = `
+                    <td>${new Date(record.checked_at).toLocaleString()}</td>
+                    <td>${priceText}</td>
+                    <td><span class="product-status ${statusClass}">${statusText}</span></td>
+                `;
+                tbody.appendChild(row);
+            });
+
+            // Draw simple chart
+            drawPriceChart(history);
+
+            // Show modal
+            document.getElementById('historyModal').style.display = 'block';
+        }
+
+        function drawPriceChart(history) {
+            const canvas = document.getElementById('priceChart');
+            const ctx = canvas.getContext('2d');
+            
+            // Clear canvas
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            if (history.length === 0) return;
+
+            // Reverse history to show oldest first
+            const sortedHistory = [...history].reverse();
+            
+            // Filter out null prices
+            const validPrices = sortedHistory.filter(h => h.price !== null);
+            
+            if (validPrices.length === 0) return;
+
+            // Get min and max prices
+            const prices = validPrices.map(h => parseFloat(h.price));
+            const minPrice = Math.min(...prices);
+            const maxPrice = Math.max(...prices);
+            const priceRange = maxPrice - minPrice || 1;
+
+            // Canvas dimensions
+            const padding = 40;
+            const chartWidth = canvas.width - 2 * padding;
+            const chartHeight = canvas.height - 2 * padding;
+
+            // Draw axes
+            ctx.strokeStyle = '#e0e0e0';
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            ctx.moveTo(padding, padding);
+            ctx.lineTo(padding, canvas.height - padding);
+            ctx.lineTo(canvas.width - padding, canvas.height - padding);
+            ctx.stroke();
+
+            // Draw price line
+            ctx.strokeStyle = '#667eea';
+            ctx.lineWidth = 3;
+            ctx.beginPath();
+
+            validPrices.forEach((record, index) => {
+                const x = padding + (index / (validPrices.length - 1 || 1)) * chartWidth;
+                const y = canvas.height - padding - ((parseFloat(record.price) - minPrice) / priceRange) * chartHeight;
+                
+                if (index === 0) {
+                    ctx.moveTo(x, y);
+                } else {
+                    ctx.lineTo(x, y);
+                }
+            });
+
+            ctx.stroke();
+
+            // Draw points
+            ctx.fillStyle = '#667eea';
+            validPrices.forEach((record, index) => {
+                const x = padding + (index / (validPrices.length - 1 || 1)) * chartWidth;
+                const y = canvas.height - padding - ((parseFloat(record.price) - minPrice) / priceRange) * chartHeight;
+                
+                ctx.beginPath();
+                ctx.arc(x, y, 4, 0, 2 * Math.PI);
+                ctx.fill();
+            });
+
+            // Draw labels
+            ctx.fillStyle = '#666';
+            ctx.font = '12px sans-serif';
+            ctx.textAlign = 'right';
+            ctx.fillText(`$${maxPrice.toFixed(2)}`, padding - 5, padding + 5);
+            ctx.fillText(`$${minPrice.toFixed(2)}`, padding - 5, canvas.height - padding + 5);
+        }
+
+        function closeModal() {
+            document.getElementById('historyModal').style.display = 'none';
+        }
+
+        // Close modal when clicking outside
+        window.onclick = function(event) {
+            const modal = document.getElementById('historyModal');
+            if (event.target === modal) {
+                modal.style.display = 'none';
+            }
+        }
+    </script>
+</body>
+</html>
