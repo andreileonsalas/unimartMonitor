@@ -24,20 +24,25 @@ Para usar las opciones online (GitHub Pages, Netlify), necesitas hacer el reposi
 
 ### 🌐 Opción 1: GitHub Pages (RECOMENDADO - Sin instalar nada)
 
-**⚠️ Requiere que el repositorio sea público primero (ver arriba)**
+**⚠️ Primero: Haz merge del Pull Request a la rama `main`**
 
-**Activa GitHub Pages una sola vez y tendrás la aplicación disponible 24/7 en internet:**
+1. Ve a: `https://github.com/andreileonsalas/unimartMonitor/pulls`
+2. Busca el Pull Request "Fix scraper reference error" (o similar)
+3. Click en **"Merge pull request"**
+4. Click en **"Confirm merge"**
+5. Espera 30 segundos a que se complete el merge
 
-1. Asegúrate que el repo es público (ver instrucciones arriba)
-2. Ve a tu repositorio en GitHub
-3. Click en **Settings** (⚙️)
-4. En el menú izquierdo, click en **Pages**
-5. En "Build and deployment":
+**Luego, activa GitHub Pages:**
+
+1. Ve a tu repositorio: `https://github.com/andreileonsalas/unimartMonitor`
+2. Click en **Settings** (⚙️)
+3. En el menú izquierdo, click en **Pages**
+4. En "Build and deployment":
    - **Source**: Deploy from a branch
    - **Branch**: main
    - **Folder**: / (root)
-6. Click en **Save**
-7. Espera 1-2 minutos
+5. Click en **Save**
+6. Espera 1-2 minutos
 
 **Tu aplicación estará disponible en:**
 ```
@@ -50,7 +55,32 @@ https://andreileonsalas.github.io/unimartMonitor/
 - No necesitas instalar nada en tu computadora
 - Es 100% GRATIS (no requiere pago)
 
-### 🌍 Opción 2: Netlify Drop (Arrastra y suelta - MUY FÁCIL)
+### 🌍 Opción 2: Usando CDN (Funciona INMEDIATAMENTE después del merge)
+
+**⚠️ Nota:** Estas URLs funcionarán automáticamente después de que hagas merge del PR a `main` (ver Opción 1).
+
+Estas URLs funcionan sin necesidad de activar nada (solo copia y pega en tu navegador):
+
+**Opción A - jsDelivr CDN (RECOMENDADO):**
+```
+https://cdn.jsdelivr.net/gh/andreileonsalas/unimartMonitor@main/index.html
+```
+
+**Opción B - RawCDN GitHack:**
+```
+https://rawcdn.githack.com/andreileonsalas/unimartMonitor/main/index.html
+```
+
+✅ **Ventajas:**
+- Funciona INMEDIATAMENTE (no necesitas configurar GitHub Pages)
+- Solo copia y pega la URL en tu navegador
+- Se actualiza automáticamente con cada commit a `main`
+- Gratis y sin configuración
+- Súper rápido (usa CDN global)
+
+⚠️ **Nota:** Estos servicios usan caché, así que los datos pueden tardar unos minutos en actualizarse después de que el GitHub Action corra.
+
+### 🌍 Opción 3: Netlify Drop (Arrastra y suelta - MUY FÁCIL)
 
 **✅ Funciona con repo público o privado**
 
@@ -70,7 +100,7 @@ https://andreileonsalas.github.io/unimartMonitor/
 
 ⚠️ **Nota:** Para actualizar los datos, necesitas volver a subir el archivo `prices.db` actualizado.
 
-### 📱 Opción 3: Directamente desde tu Navegador (Solo para probar)
+### 📱 Opción 4: Directamente desde tu Navegador (Solo para probar)
 
 1. **Descarga solo estos 3 archivos del repositorio:**
    - `index.html`
@@ -79,9 +109,9 @@ https://andreileonsalas.github.io/unimartMonitor/
 
 2. **Abre `index.html` con tu navegador** (doble clic en el archivo)
 
-⚠️ **Nota**: Algunos navegadores pueden bloquear la carga del archivo SQLite por seguridad. Si ves un error, usa la Opción 2.
+⚠️ **Nota**: Algunos navegadores pueden bloquear la carga del archivo SQLite por seguridad. Si ves un error, usa una de las opciones con servidor.
 
-### 💻 Opción 2: Con un Servidor Local (RECOMENDADO)
+### 💻 Opción 5: Con un Servidor Local (Para desarrollo)
 
 Descarga el repositorio completo y usa cualquiera de estos métodos:
 
@@ -103,18 +133,7 @@ npx http-server -p 8000
 ```
 Luego abre: **http://localhost:8000**
 
-### 🌐 Opción 3: Usando Servicios Externos (Experimental)
-
-**Nota:** Estos servicios pueden funcionar o no dependiendo de las restricciones de CORS y CDN. Úsalos bajo tu propio riesgo.
-
-Servicios que podrías probar:
-- **GitHub Pages**: Activa GitHub Pages en Settings → Pages → Deploy from branch (main)
-- **raw.githack.com**: Usa la URL raw de GitHub y reemplaza `raw.githubusercontent.com` con `raw.githack.com`
-- **htmlpreview.github.io**: `https://htmlpreview.github.io/?[URL-de-tu-archivo-HTML]`
-
-⚠️ **Advertencia**: Estas opciones no están oficialmente soportadas y pueden no funcionar correctamente debido a restricciones de seguridad del navegador al cargar archivos SQLite.
-
-### 🌐 Opción 4: En tu Servidor Web / Hosting
+### 🌐 Opción 6: En tu Servidor Web / Hosting
 
 Si tienes un hosting con cPanel o FTP:
 
