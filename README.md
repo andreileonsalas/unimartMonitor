@@ -2,15 +2,64 @@
 
 A lightweight price tracking application for unimart.com products, similar to CamelCamelCamel. This tool automatically monitors product prices daily and displays historical trends in your browser - no backend or authentication required!
 
-## 🚀 Ver la Aplicación AHORA (Sin Instalar Nada)
+## 🚀 Cómo Ver la Aplicación
 
-**👉 Simplemente abre este link en tu navegador:**
+### 📱 Opción 1: Directamente desde tu Navegador (MÁS FÁCIL)
 
-### https://raw.githack.com/andreileonsalas/unimartMonitor/main/index.html
+1. **Descarga solo estos 3 archivos del repositorio:**
+   - `index.html`
+   - `viewer.js`
+   - `prices.db`
 
-✅ **¡Listo!** No necesitas descargar nada, instalar nada, ni configurar nada.  
-✅ Los datos se actualizan automáticamente cada día a las 2 AM UTC.  
-✅ Funciona en cualquier navegador (Chrome, Firefox, Safari, Edge).
+2. **Abre `index.html` con tu navegador** (doble clic en el archivo)
+
+⚠️ **Nota**: Algunos navegadores pueden bloquear la carga del archivo SQLite por seguridad. Si ves un error, usa la Opción 2.
+
+### 💻 Opción 2: Con un Servidor Local (RECOMENDADO)
+
+Descarga el repositorio completo y usa cualquiera de estos métodos:
+
+**A) Con Python (lo más simple - viene instalado en Mac/Linux):**
+```bash
+cd unimartMonitor
+python -m http.server 8000
+```
+Luego abre en tu navegador: **http://localhost:8000**
+
+**B) Con Visual Studio Code (súper fácil):**
+1. Abre la carpeta `unimartMonitor` en VS Code
+2. Instala la extensión "Live Server" (Ritwick Dey)
+3. Clic derecho en `index.html` → "Open with Live Server"
+
+**C) Con Node.js:**
+```bash
+npx http-server -p 8000
+```
+Luego abre: **http://localhost:8000**
+
+### 🌐 Opción 3: Usando Servicios Externos (Experimental)
+
+**Nota:** Estos servicios pueden funcionar o no dependiendo de las restricciones de CORS y CDN. Úsalos bajo tu propio riesgo.
+
+Servicios que podrías probar:
+- **GitHub Pages**: Activa GitHub Pages en Settings → Pages → Deploy from branch (main)
+- **raw.githack.com**: Usa la URL raw de GitHub y reemplaza `raw.githubusercontent.com` con `raw.githack.com`
+- **htmlpreview.github.io**: `https://htmlpreview.github.io/?[URL-de-tu-archivo-HTML]`
+
+⚠️ **Advertencia**: Estas opciones no están oficialmente soportadas y pueden no funcionar correctamente debido a restricciones de seguridad del navegador al cargar archivos SQLite.
+
+### 🌐 Opción 4: En tu Servidor Web / Hosting
+
+Si tienes un hosting con cPanel o FTP:
+
+1. Sube estos 3 archivos a tu carpeta web (`public_html`, `www`, etc.):
+   - `index.html`
+   - `viewer.js`  
+   - `prices.db`
+
+2. Accede desde tu navegador: `http://tudominio.com/index.html`
+
+3. Para actualizar precios: descarga el nuevo `prices.db` del repo y súbelo (cada vez que el GitHub Action lo actualice)
 
 ## 📸 Preview
 
@@ -20,7 +69,7 @@ La aplicación muestra:
 - 📊 Estadísticas totales (productos, registros, última actualización)
 - 🔍 Buscador en tiempo real
 - 💰 Precios actuales con moneda (CRC - Colones)
-- 📈 Historial de cambios de precio
+- 📈 Historial de cambios de precio al hacer clic en cada producto
 - 🎨 Interfaz moderna y responsiva
 
 ## Features
@@ -82,40 +131,19 @@ This will:
 - Scrape prices from up to 50 products
 - Save data to `prices.db`
 
-## 🌐 Otras Formas de Ver la Aplicación
+## 🤖 Automated Daily Tracking
 
-### Opción 1: Ver desde GitHub (Alternativa)
-```
-https://htmlpreview.github.io/?https://github.com/andreileonsalas/unimartMonitor/blob/main/index.html
-```
+The GitHub Actions workflow (`.github/workflows/scrape.yml`) runs automatically every day at 2 AM UTC. It will:
 
-### Opción 2: En tu Computadora (Requiere descargar el repo)
+1. Install dependencies
+2. Run the scraper
+3. Commit the updated database
+4. Push changes to the repository
 
-**Con Python (lo más simple):**
-```bash
-cd unimartMonitor
-python -m http.server 8000
-```
-Abre: http://localhost:8000
-
-**Con VS Code (súper fácil):**
-1. Instala la extensión "Live Server"
-2. Clic derecho en `index.html` → "Open with Live Server"
-
-**Con Node.js:**
-```bash
-npx http-server -p 8000
-```
-Abre: http://localhost:8000
-
-### Opción 3: En tu Hosting/cPanel
-
-Sube estos 3 archivos a `public_html`:
-- `index.html`
-- `viewer.js`
-- `prices.db`
-
-Luego accede a: `http://tudominio.com/index.html`
+**Trigger manual:** Puedes ejecutarlo manualmente desde GitHub:
+- Ve a "Actions" tab en GitHub
+- Selecciona "Daily Price Scraper"
+- Clic en "Run workflow"
 
 ---
 
@@ -139,7 +167,7 @@ cd unimartMonitor
 npm install
 ```
 
-### Running the Scraper
+### Running the Scraper Locally
 
 To run the scraper manually:
 
@@ -152,8 +180,6 @@ This will:
 - Extract product URLs
 - Scrape prices from up to 50 products
 - Save data to `prices.db`
-
-## 🤖 Automated Daily Tracking
 
 The GitHub Actions workflow (`.github/workflows/scrape.yml`) runs automatically every day at 2 AM UTC. It will:
 
