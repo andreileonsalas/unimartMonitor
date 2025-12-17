@@ -2,6 +2,27 @@
 
 A lightweight price tracking application for unimart.com products, similar to CamelCamelCamel. This tool automatically monitors product prices daily and displays historical trends in your browser - no backend or authentication required!
 
+## 🚀 Ver la Aplicación AHORA (Sin Instalar Nada)
+
+**👉 Simplemente abre este link en tu navegador:**
+
+### https://raw.githack.com/andreileonsalas/unimartMonitor/main/index.html
+
+✅ **¡Listo!** No necesitas descargar nada, instalar nada, ni configurar nada.  
+✅ Los datos se actualizan automáticamente cada día a las 2 AM UTC.  
+✅ Funciona en cualquier navegador (Chrome, Firefox, Safari, Edge).
+
+## 📸 Preview
+
+![Unimart Price Tracker](https://github.com/user-attachments/assets/356c3b3a-a560-4088-9c20-be243f8eff19)
+
+La aplicación muestra:
+- 📊 Estadísticas totales (productos, registros, última actualización)
+- 🔍 Buscador en tiempo real
+- 💰 Precios actuales con moneda (CRC - Colones)
+- 📈 Historial de cambios de precio
+- 🎨 Interfaz moderna y responsiva
+
 ## Features
 
 - 📈 **Daily Price Tracking**: Automatically scrapes prices from unimart.com using GitHub Actions
@@ -61,129 +82,78 @@ This will:
 - Scrape prices from up to 50 products
 - Save data to `prices.db`
 
-## 🌐 Cómo Ver la Aplicación (Sin GitHub Pages)
+## 🌐 Otras Formas de Ver la Aplicación
 
-### ✨ Opción 1: Ver Directo desde GitHub (MÁS FÁCIL - SIN DESCARGAR NADA)
-
-Usa estos servicios que renderizan HTML directamente desde GitHub:
-
-#### **🚀 Opción A: Raw.githack.com (RECOMENDADO)**
-```
-https://raw.githack.com/andreileonsalas/unimartMonitor/main/index.html
-```
-- ✅ Muy rápido
-- ✅ Con CDN
-- ✅ Actualización automática
-
-#### **🚀 Opción B: HTMLPreview.github.io**
+### Opción 1: Ver desde GitHub (Alternativa)
 ```
 https://htmlpreview.github.io/?https://github.com/andreileonsalas/unimartMonitor/blob/main/index.html
 ```
-- ✅ Servicio oficial de GitHub
-- ✅ Sin configuración
 
-**¿Cómo funciona?** Estos servicios descargan tu HTML y la base de datos `prices.db` directamente desde GitHub y los sirven con los headers correctos para que funcione en el navegador. 
+### Opción 2: En tu Computadora (Requiere descargar el repo)
 
-**¿Es seguro?** Sí, porque tanto el HTML como el archivo `prices.db` ya son públicos en tu repositorio de GitHub. Cualquiera puede descargarlos.
-
-**Actualización automática**: Cada vez que el GitHub Action actualice `prices.db` y haga commit, estos links mostrarán los datos más recientes automáticamente (puede tardar 1-2 minutos en actualizar el caché).
-
-### ✨ Opción 2: Con Python (RECOMENDADO para uso local)
-
-Si tienes Python instalado (viene pre-instalado en Mac/Linux):
-
+**Con Python (lo más simple):**
 ```bash
-# Entra a la carpeta del proyecto
 cd unimartMonitor
-
-# Inicia el servidor
 python -m http.server 8000
-
-# O en Python 2:
-python -m SimpleHTTPServer 8000
 ```
+Abre: http://localhost:8000
 
-Luego abre tu navegador en: **http://localhost:8000**
+**Con VS Code (súper fácil):**
+1. Instala la extensión "Live Server"
+2. Clic derecho en `index.html` → "Open with Live Server"
 
-### ✨ Opción 3: Con Node.js
-
-Si prefieres usar Node.js:
-
+**Con Node.js:**
 ```bash
-# Opción A: Con http-server (más rápido)
 npx http-server -p 8000
+```
+Abre: http://localhost:8000
 
-# Opción B: Con live-server (se recarga automáticamente)
-npx live-server --port=8000
+### Opción 3: En tu Hosting/cPanel
+
+Sube estos 3 archivos a `public_html`:
+- `index.html`
+- `viewer.js`
+- `prices.db`
+
+Luego accede a: `http://tudominio.com/index.html`
+
+---
+
+## 🔧 Para Desarrolladores
+
+### Prerequisites
+
+- Node.js 20 or higher (requerido para el scraper)
+- npm
+
+### Installation
+
+1. Clone this repository:
+```bash
+git clone https://github.com/andreileonsalas/unimartMonitor.git
+cd unimartMonitor
 ```
 
-Luego abre tu navegador en: **http://localhost:8000**
+2. Install dependencies:
+```bash
+npm install
+```
 
-### ✨ Opción 4: Con Visual Studio Code (SÚPER FÁCIL)
+### Running the Scraper
 
-1. **Instala la extensión "Live Server"**:
-   - Abre VS Code
-   - Ve a Extensions (Ctrl+Shift+X o Cmd+Shift+X)
-   - Busca "Live Server" de Ritwick Dey
-   - Haz clic en "Install"
-
-2. **Abre el proyecto**:
-   - Abre la carpeta `unimartMonitor` en VS Code
-
-3. **Inicia el servidor**:
-   - Haz clic derecho en `index.html`
-   - Selecciona "Open with Live Server"
-   - ¡Listo! Se abrirá automáticamente en tu navegador
-
-### ✨ Opción 5: En cPanel / Hosting Web
-
-Si tienes un hosting con cPanel:
-
-1. **Sube estos archivos a `public_html`**:
-   ```
-   index.html
-   viewer.js
-   prices.db
-   ```
-
-2. **Cómo subir**:
-   - Entra a cPanel → File Manager
-   - Navega a `public_html`
-   - Haz clic en "Upload"
-   - Arrastra los 3 archivos mencionados
-   - ¡Listo!
-
-3. **Accede a tu sitio**:
-   - `http://tudominio.com/index.html`
-   - O simplemente `http://tudominio.com/` si renombras `index.html`
-
-4. **Actualizar precios**:
-   - Cada vez que el GitHub Action actualice `prices.db`
-   - Descarga el nuevo `prices.db` del repositorio
-   - Súbelo a tu cPanel (reemplaza el anterior)
-
-### ✨ Opción 6: Con PHP Built-in Server
-
-Si tienes PHP instalado:
+To run the scraper manually:
 
 ```bash
-php -S localhost:8000
+npm run scrape
 ```
 
-Luego abre: **http://localhost:8000**
+This will:
+- Fetch the sitemap from unimart.com
+- Extract product URLs
+- Scrape prices from up to 50 products
+- Save data to `prices.db`
 
-## 📸 Preview de la Aplicación
-
-![Unimart Price Tracker](https://github.com/user-attachments/assets/356c3b3a-a560-4088-9c20-be243f8eff19)
-
-La aplicación muestra:
-- 📊 Estadísticas totales (productos, registros, última actualización)
-- 🔍 Buscador en tiempo real
-- 💰 Precios actuales con moneda
-- 📈 Historial de cambios de precio
-- 🎨 Interfaz moderna y responsiva
-
-## Automated Daily Tracking
+## 🤖 Automated Daily Tracking
 
 The GitHub Actions workflow (`.github/workflows/scrape.yml`) runs automatically every day at 2 AM UTC. It will:
 
@@ -196,39 +166,6 @@ You can also trigger it manually:
 - Go to "Actions" tab in GitHub
 - Select "Daily Price Scraper"
 - Click "Run workflow"
-
-## GitHub Pages Deployment
-
-### Paso a Paso para Habilitar GitHub Pages:
-
-1. **Ve a tu repositorio en GitHub**
-   - Navega a `https://github.com/andreileonsalas/unimartMonitor`
-
-2. **Abre la configuración**
-   - Haz clic en la pestaña "Settings" (⚙️)
-
-3. **Ve a Pages**
-   - En el menú lateral izquierdo, busca y haz clic en "Pages"
-
-4. **Configura la fuente**
-   - En "Build and deployment" → "Source", selecciona: **Deploy from a branch**
-   - En "Branch", selecciona: **main** (o tu rama principal)
-   - Folder: **/ (root)**
-   - Haz clic en **Save**
-
-5. **Espera el deployment**
-   - GitHub Pages tardará 1-2 minutos en construir el sitio
-   - Verás un mensaje verde cuando esté listo
-
-6. **Accede a tu tracker**
-   - URL: `https://andreileonsalas.github.io/unimartMonitor/`
-   - ¡Listo! Tu price tracker está en vivo 🎉
-
-### Solución de Problemas
-
-- **Página no carga**: Espera 2-3 minutos después de activar Pages
-- **404 Error**: Verifica que la rama seleccionada sea la correcta
-- **Base de datos no carga**: Asegúrate que `prices.db` esté commiteado en el repositorio
 
 ## Database Schema
 
