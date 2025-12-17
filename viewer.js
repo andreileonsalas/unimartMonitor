@@ -3,6 +3,11 @@ let allProducts = [];
 
 async function loadDatabase() {
     try {
+        // Check if SQL.js is available
+        if (typeof initSqlJs === 'undefined') {
+            throw new Error('SQL.js library failed to load. Please check your internet connection or try refreshing the page.');
+        }
+
         // Initialize SQL.js
         const SQL = await initSqlJs({
             locateFile: file => `https://cdnjs.cloudflare.com/ajax/libs/sql.js/1.8.0/${file}`
