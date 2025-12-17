@@ -137,3 +137,6 @@ dist
 # Vite logs files
 vite.config.js.timestamp-*
 vite.config.ts.timestamp-*
+
+# Include SQLite database (needed for GitHub Pages viewer)
+!prices.db
