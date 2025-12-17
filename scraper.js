@@ -7,7 +7,7 @@ const path = require('path');
 // Configuration
 const SITEMAP_URL = 'https://www.unimart.com/sitemap.xml';
 const DB_PATH = path.join(__dirname, 'prices.db');
-const MAX_PRODUCTS_PER_RUN = 100; // Maximum products to scrape per run
+const MAX_PRODUCTS_PER_RUN = 50; // Maximum products to scrape per run
 const REQUEST_DELAY_MS = 1000; // Delay between requests in milliseconds
 
 // Initialize database
@@ -26,7 +26,7 @@ function initDatabase() {
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       product_id INTEGER NOT NULL,
       price REAL,
-      currency TEXT DEFAULT 'USD',
+      currency TEXT DEFAULT 'CRC',
       scraped_at DATETIME DEFAULT CURRENT_TIMESTAMP,
       FOREIGN KEY (product_id) REFERENCES products(id)
     );
@@ -41,14 +41,34 @@ function initDatabase() {
 // Fetch and parse sitemap
 async function fetchSitemap() {
   try {
-    console.log('Fetching sitemap from:', SITEMAP_URL);
+    console.log('Fetching sitemap index from:', SITEMAP_URL);
     const response = await axios.get(SITEMAP_URL, { timeout: 10000 });
     const parser = new xml2js.Parser();
     const result = await parser.parseStringPromise(response.data);
     
-    // Extract URLs from sitemap
-    const urls = [];
-    if (result.urlset && result.urlset.url) {
+    let urls = [];
+    
+    // Check if this is a sitemap index (contains references to other sitemaps)
+    if (result.sitemapindex && result.sitemapindex.sitemap) {
+      console.log('Found sitemap index with', result.sitemapindex.sitemap.length, 'sitemaps');
+      
+      // Fetch the first product sitemap (to limit the number of products)
+      const firstSitemapUrl = result.sitemapindex.sitemap[0].loc[0];
+      console.log('Fetching product sitemap:', firstSitemapUrl);
+      
+      const sitemapResponse = await axios.get(firstSitemapUrl, { timeout: 10000 });
+      const sitemapResult = await parser.parseStringPromise(sitemapResponse.data);
+      
+      if (sitemapResult.urlset && sitemapResult.urlset.url) {
+        for (const entry of sitemapResult.urlset.url) {
+          if (entry.loc && entry.loc[0]) {
+            urls.push(entry.loc[0]);
+          }
+        }
+      }
+    } 
+    // Direct urlset (original behavior)
+    else if (result.urlset && result.urlset.url) {
       for (const entry of result.urlset.url) {
         if (entry.loc && entry.loc[0]) {
           urls.push(entry.loc[0]);
@@ -56,7 +76,7 @@ async function fetchSitemap() {
       }
     }
     
-    console.log(`Found ${urls.length} URLs in sitemap`);
+    console.log(`Found ${urls.length} product URLs`);
     return urls;
   } catch (error) {
     console.error('Error fetching sitemap:', error.message);
@@ -78,35 +98,33 @@ async function scrapeProduct(url) {
     const $ = cheerio.load(response.data);
     
     // Try to extract product information
-    // NOTE: These selectors are generic patterns and may need to be adjusted
-    // based on the actual HTML structure of unimart.com product pages.
-    // To customize for the actual site:
-    // 1. Inspect a product page HTML
-    // 2. Update the selectors below to match the actual price/title elements
+    // Selectors adjusted for unimart.com structure
     let title = $('h1').first().text().trim() || 
                 $('meta[property="og:title"]').attr('content') ||
                 $('title').text().trim();
     
-    // Try to find price - common patterns
-    let priceText = $('.price').first().text() ||
+    // For unimart.com, prices are in .money elements
+    let priceText = $('.money').first().text().trim() ||
+                    $('.price').first().text() ||
                     $('[class*="price"]').first().text() ||
                     $('[id*="price"]').first().text() ||
                     $('meta[property="og:price:amount"]').attr('content') ||
                     '';
     
-    // Extract numeric price
+    // Extract numeric price (handles formats like ₡4,700 or $1,234.56)
     const priceMatch = priceText.match(/[\d,]+\.?\d*/);
     const price = priceMatch ? parseFloat(priceMatch[0].replace(/,/g, '')) : null;
     
-    // Try to find currency
-    let currency = 'USD';
-    const currencyMatch = priceText.match(/\$|USD|€|EUR|£|GBP/i);
-    if (currencyMatch) {
-      if (currencyMatch[0].includes('€') || currencyMatch[0].includes('EUR')) {
-        currency = 'EUR';
-      } else if (currencyMatch[0].includes('£') || currencyMatch[0].includes('GBP')) {
-        currency = 'GBP';
-      }
+    // Detect currency from symbols
+    let currency = 'CRC'; // Default to Costa Rican Colón for unimart.com
+    if (priceText.includes('₡')) {
+      currency = 'CRC';
+    } else if (priceText.includes('$') || priceText.includes('USD')) {
+      currency = 'USD';
+    } else if (priceText.includes('€') || priceText.includes('EUR')) {
+      currency = 'EUR';
+    } else if (priceText.includes('£') || priceText.includes('GBP')) {
+      currency = 'GBP';
     }
     
     return {
@@ -173,16 +191,12 @@ async function main() {
     return;
   }
   
-  // Filter for product URLs (assuming they contain /product/ or similar pattern)
+  // Filter for product URLs (unimart.com uses /products/ pattern)
   const productUrls = urls.filter(url => 
-    url.includes('/product') || 
-    url.includes('/p/') ||
-    url.includes('/item') ||
-    // If no pattern found, include all non-static pages
-    (!url.includes('/blog') && !url.includes('/about') && !url.includes('/contact'))
+    url.includes('/products/')
   );
   
-  console.log(`Found ${productUrls.length} potential product URLs`);
+  console.log(`Found ${productUrls.length} product URLs`);
   
   // Scrape products (limit to avoid overwhelming the site)
   const limit = Math.min(productUrls.length, MAX_PRODUCTS_PER_RUN);
