@@ -80,7 +80,17 @@ function displayData() {
                     WHERE product_id = p.id 
                     ORDER BY scraped_at ASC 
                     LIMIT 1
-                ) as first_price
+                ) as first_price,
+                (
+                    SELECT MIN(price)
+                    FROM prices
+                    WHERE product_id = p.id
+                ) as min_price,
+                (
+                    SELECT MAX(price)
+                    FROM prices
+                    WHERE product_id = p.id
+                ) as max_price
             FROM products p
             LEFT JOIN prices pr ON p.id = pr.product_id
             WHERE pr.id = (
@@ -108,7 +118,9 @@ function displayData() {
       currentPrice: row[4],
       currency: row[5],
       lastScraped: row[6],
-      firstPrice: row[7]
+      firstPrice: row[7],
+      minPrice: row[8],
+      maxPrice: row[9]
     }));
 
     console.log('Parsed products:', allProducts);
@@ -146,6 +158,13 @@ function displayProducts(products) {
 
   productsList.innerHTML = products.map(product => {
     let priceChange = '';
+    let lowestPriceBadge = '';
+    
+    // Check if current price is the lowest
+    if (product.currentPrice === product.minPrice && product.minPrice !== null) {
+      lowestPriceBadge = '<span class="lowest-price-badge">🎉 ¡PRECIO MÁS BAJO!</span>';
+    }
+    
     if (product.firstPrice && product.currentPrice !== product.firstPrice) {
       const change = ((product.currentPrice - product.firstPrice) / product.firstPrice * 100).toFixed(1);
       const changeClass = change > 0 ? 'price-up' : 'price-down';
@@ -156,15 +175,15 @@ function displayProducts(products) {
     }
 
     return `
-            <div class="product-item" onclick="toggleProductDetails(${product.id})">
+            <div class="product-item product-card" onclick="toggleProductDetails(${product.id})">
                 <div class="product-title">${escapeHtml(product.title)}</div>
                 ${product.sku ? `<div class="product-sku">SKU: ${escapeHtml(product.sku)}</div>` : ''}
                 <div class="product-info">
-                    <div class="current-price">${product.currency} ${typeof product.currentPrice === 'number' ? product.currentPrice.toFixed(2) : 'N/A'}</div>
+                    <div class="current-price">${product.currency} ${typeof product.currentPrice === 'number' ? product.currentPrice.toFixed(2) : 'N/A'}${lowestPriceBadge}</div>
                     ${priceChange}
                 </div>
                 <div class="product-url">${escapeHtml(product.url)}</div>
-                <div id="chart-${product.id}" class="chart-container"></div>
+                <div id="chart-${product.id}" class="chart-container price-history"></div>
             </div>
         `;
   }).join('');
@@ -175,6 +194,12 @@ function toggleProductDetails(productId) {
     
   if (chartContainer.classList.contains('active')) {
     chartContainer.classList.remove('active');
+    // Destroy chart if exists
+    const canvasId = `priceChart-${productId}`;
+    const existingChart = Chart.getChart(canvasId);
+    if (existingChart) {
+      existingChart.destroy();
+    }
     return;
   }
 
@@ -190,21 +215,99 @@ function toggleProductDetails(productId) {
     chartContainer.innerHTML = '<p>No price history available</p>';
   } else {
     const history = historyQuery[0].values;
-    let historyHtml = '<h3>Price History</h3><ul class="price-history">';
-        
-    history.forEach(([price, currency, date]) => {
-      const formattedDate = new Date(date).toLocaleString();
-      const formattedPrice = typeof price === 'number' ? price.toFixed(2) : 'N/A';
-      historyHtml += `
-                <li>
-                    <span>${formattedDate}</span>
-                    <span><strong>${currency} ${formattedPrice}</strong></span>
-                </li>
-            `;
+    const prices = history.map(h => h[0]);
+    const dates = history.map(h => new Date(h[2]));
+    const currency = history[0][1];
+    
+    // Calculate stats
+    const minPrice = Math.min(...prices);
+    const maxPrice = Math.max(...prices);
+    const avgPrice = (prices.reduce((a, b) => a + b, 0) / prices.length).toFixed(2);
+    const currentPrice = prices[prices.length - 1];
+    
+    // Create HTML with stats and chart
+    chartContainer.innerHTML = `
+      <h3 style="margin-bottom: 1rem;">📊 Historial de Precios</h3>
+      
+      <div class="price-stats">
+        <div class="price-stat-item">
+          <div class="price-stat-label">Precio Actual</div>
+          <div class="price-stat-value">${currency} ${currentPrice.toFixed(2)}</div>
+        </div>
+        <div class="price-stat-item">
+          <div class="price-stat-label">Precio Más Bajo</div>
+          <div class="price-stat-value lowest">${currency} ${minPrice.toFixed(2)}</div>
+        </div>
+        <div class="price-stat-item">
+          <div class="price-stat-label">Precio Más Alto</div>
+          <div class="price-stat-value highest">${currency} ${maxPrice.toFixed(2)}</div>
+        </div>
+        <div class="price-stat-item">
+          <div class="price-stat-label">Promedio</div>
+          <div class="price-stat-value">${currency} ${avgPrice}</div>
+        </div>
+      </div>
+      
+      <div class="chart-wrapper">
+        <canvas id="priceChart-${productId}"></canvas>
+      </div>
+    `;
+    
+    // Create chart
+    const ctx = document.getElementById(`priceChart-${productId}`).getContext('2d');
+    new Chart(ctx, {
+      type: 'line',
+      data: {
+        labels: dates.map(d => d.toLocaleDateString()),
+        datasets: [{
+          label: `Precio (${currency})`,
+          data: prices,
+          borderColor: '#667eea',
+          backgroundColor: 'rgba(102, 126, 234, 0.1)',
+          tension: 0.4,
+          fill: true,
+          pointRadius: 4,
+          pointHoverRadius: 6,
+          pointBackgroundColor: '#667eea',
+          pointBorderColor: '#fff',
+          pointBorderWidth: 2
+        }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: true,
+        plugins: {
+          legend: {
+            display: false
+          },
+          tooltip: {
+            mode: 'index',
+            intersect: false,
+            callbacks: {
+              label: function(context) {
+                return `${currency} ${context.parsed.y.toFixed(2)}`;
+              }
+            }
+          }
+        },
+        scales: {
+          y: {
+            beginAtZero: false,
+            ticks: {
+              callback: function(value) {
+                return `${currency} ${value.toFixed(0)}`;
+              }
+            }
+          },
+          x: {
+            ticks: {
+              maxRotation: 45,
+              minRotation: 45
+            }
+          }
+        }
+      }
     });
-        
-    historyHtml += '</ul>';
-    chartContainer.innerHTML = historyHtml;
   }
 
   chartContainer.classList.add('active');

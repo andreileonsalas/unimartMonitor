@@ -108,11 +108,32 @@
             border-bottom: 1px solid #e9ecef;
             padding: 1.5rem;
             cursor: pointer;
-            transition: background-color 0.2s;
+            transition: all 0.3s ease;
+            position: relative;
+            border-left: 3px solid transparent;
         }
 
         .product-card:hover {
             background-color: #f8f9fa;
+            border-left-color: #667eea;
+            transform: translateX(5px);
+            box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+        }
+        
+        .product-card::after {
+            content: '▼ Click para ver historial';
+            position: absolute;
+            right: 1.5rem;
+            top: 50%;
+            transform: translateY(-50%);
+            font-size: 0.85rem;
+            color: #6c757d;
+            opacity: 0;
+            transition: opacity 0.3s;
+        }
+        
+        .product-card:hover::after {
+            opacity: 1;
         }
 
         .product-card:last-child {
@@ -179,10 +200,80 @@
             padding: 1.5rem;
             margin-top: 1rem;
             display: none;
+            animation: slideDown 0.3s ease;
         }
 
         .price-history.active {
             display: block;
+        }
+        
+        @keyframes slideDown {
+            from {
+                opacity: 0;
+                transform: translateY(-10px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+        
+        .price-stats {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 1rem;
+            margin-bottom: 1.5rem;
+        }
+        
+        .price-stat-item {
+            background: white;
+            padding: 1rem;
+            border-radius: 8px;
+            text-align: center;
+        }
+        
+        .price-stat-label {
+            font-size: 0.85rem;
+            color: #6c757d;
+            margin-bottom: 0.5rem;
+        }
+        
+        .price-stat-value {
+            font-size: 1.3rem;
+            font-weight: 700;
+            color: #667eea;
+        }
+        
+        .price-stat-value.lowest {
+            color: #28a745;
+        }
+        
+        .price-stat-value.highest {
+            color: #dc3545;
+        }
+        
+        .chart-wrapper {
+            background: white;
+            padding: 1rem;
+            border-radius: 8px;
+            margin-bottom: 1rem;
+        }
+        
+        .lowest-price-badge {
+            display: inline-block;
+            background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
+            color: white;
+            padding: 0.4rem 0.8rem;
+            border-radius: 20px;
+            font-size: 0.85rem;
+            font-weight: 600;
+            margin-left: 0.5rem;
+            animation: pulse 2s infinite;
+        }
+        
+        @keyframes pulse {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.05); }
         }
 
         .price-history-item {
@@ -321,6 +412,9 @@
     <script 
         src="https://cdnjs.cloudflare.com/ajax/libs/sql.js/1.8.0/sql-wasm.js"
         crossorigin="anonymous"></script>
+    
+    <!-- Chart.js for price graphs -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
     
     <!-- Custom JS -->
     <script src="viewer.js"></script>
