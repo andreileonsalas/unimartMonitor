@@ -522,3 +522,4 @@ MIT
 ## Contributing
 
 Contributions are welcome! Please feel free to submit a Pull Request.
+# Merge conflict resolved - keeping prices.db from PR
