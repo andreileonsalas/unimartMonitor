@@ -119,9 +119,7 @@ async function fetchSitemap(db) {
         const sitemapUrl = productSitemaps[i].loc[0];
         
         try {
-          if ((i - startIndex) > 0 && (i - startIndex) % 20 === 0) {
-            console.log(`Batch progress: ${i - startIndex}/${endIndex - startIndex} sitemaps processed...`);
-          }
+          console.log(`[${i - startIndex + 1}/${endIndex - startIndex}] Fetching sitemap: ${sitemapUrl}`);
           
           const sitemapResponse = await axios.get(sitemapUrl, { timeout: 10000 });
           const sitemapResult = await parser.parseStringPromise(sitemapResponse.data);
@@ -351,8 +349,8 @@ async function main() {
   // Combine: prioritize new products, then update old ones
   const urlsToScrape = [...unscrapedUrls, ...alreadyScrapedUrls];
   
-  // Scrape products (limit per run to be respectful to the server)
-  const limit = Math.min(urlsToScrape.length, MAX_PRODUCTS_PER_RUN);
+  // Scrape all products in this batch
+  const limit = urlsToScrape.length;
   console.log(`\nProcessing ${limit} products in this run...`);
   console.log('='.repeat(70));
   
@@ -361,6 +359,7 @@ async function main() {
   
   for (let i = 0; i < limit; i++) {
     const url = urlsToScrape[i];
+    console.log(`[${i + 1}/${limit}] Processing: ${url}`);
     const productData = await scrapeProduct(url);
     
     if (productData) {

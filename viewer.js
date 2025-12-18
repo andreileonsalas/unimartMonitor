@@ -3,6 +3,7 @@ let allProducts = [];
 
 async function loadDatabase() {
   try {
+    console.log('Initializing database loading...');
     // Check if SQL.js is available
     if (typeof initSqlJs === 'undefined') {
       throw new Error('SQL.js library failed to load. Please check your internet connection or try refreshing the page.');
@@ -13,17 +14,22 @@ async function loadDatabase() {
       locateFile: file => `https://cdnjs.cloudflare.com/ajax/libs/sql.js/1.8.0/${file}`
     });
 
+    console.log('Fetching database file...');
     // Fetch the database file
     const response = await fetch('prices.db');
     if (!response.ok) {
+      console.error('Failed to fetch database file:', response.statusText);
       throw new Error('Database file not found. Please run the scraper first.');
     }
 
+    console.log('Database file fetched successfully.');
     const buffer = await response.arrayBuffer();
     db = new SQL.Database(new Uint8Array(buffer));
 
+    console.log('Database loaded successfully.');
     displayData();
   } catch (error) {
+    console.error('Error loading database:', error);
     showError('Error loading database: ' + error.message);
   }
 }
@@ -36,6 +42,7 @@ function showError(message) {
 
 function displayData() {
   try {
+    console.log('Executing statistics query...');
     // Get statistics
     const statsQuery = db.exec(`
             SELECT 
@@ -44,17 +51,19 @@ function displayData() {
                 (SELECT MAX(scraped_at) FROM prices) as last_update
         `);
 
+    console.log('Statistics query result:', statsQuery);
     if (statsQuery.length > 0) {
       const stats = statsQuery[0].values[0];
+      console.log('Parsed statistics:', stats);
       document.getElementById('totalProducts').textContent = stats[0] || 0;
       document.getElementById('totalRecords').textContent = stats[1] || 0;
-            
       if (stats[2]) {
         const lastUpdate = new Date(stats[2]);
         document.getElementById('lastUpdate').textContent = lastUpdate.toLocaleDateString();
       }
     }
 
+    console.log('Executing products query...');
     // Get all products with latest prices
     const productsQuery = db.exec(`
             SELECT 
@@ -83,7 +92,9 @@ function displayData() {
             ORDER BY p.last_scraped DESC
         `);
 
+    console.log('Products query result:', productsQuery);
     if (productsQuery.length === 0 || productsQuery[0].values.length === 0) {
+      console.warn('No products found in the database.');
       showEmptyState();
       return;
     }
@@ -100,6 +111,7 @@ function displayData() {
       firstPrice: row[7]
     }));
 
+    console.log('Parsed products:', allProducts);
     displayProducts(allProducts);
 
     // Setup search
@@ -108,12 +120,23 @@ function displayData() {
     // Show content
     document.getElementById('loading').style.display = 'none';
     document.getElementById('content').style.display = 'block';
+
+    console.log('Ensuring content visibility...');
+    const contentElement = document.getElementById('content');
+    if (contentElement.classList.contains('d-none')) {
+      console.warn('#content is hidden. Removing d-none class.');
+      contentElement.classList.remove('d-none');
+    } else {
+      console.log('#content is already visible.');
+    }
   } catch (error) {
+    console.error('Error displaying data:', error);
     showError('Error displaying data: ' + error.message);
   }
 }
 
 function displayProducts(products) {
+  console.log('Displaying products:', products);
   const productsList = document.getElementById('productsList');
     
   if (products.length === 0) {
