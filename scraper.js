@@ -3,6 +3,7 @@ const cheerio = require('cheerio');
 const xml2js = require('xml2js');
 const Database = require('better-sqlite3');
 const path = require('path');
+const fs = require('fs');
 
 // ============================================================================
 // CONFIGURATION
@@ -72,6 +73,19 @@ function initDatabase() {
   `);
   
   return db;
+}
+
+// Error logging helper: append errors to error.log with timestamp
+function logError(context, err) {
+  try {
+    const logPath = path.join(__dirname, 'error.log');
+    const time = new Date().toISOString();
+    const message = typeof err === 'string' ? err : (err && err.stack) ? err.stack : JSON.stringify(err);
+    const line = `[${time}] ${context}: ${message}\n`;
+    fs.appendFileSync(logPath, line, 'utf8');
+  } catch (e) {
+    console.error('Failed to write to error.log:', e.message);
+  }
 }
 
 // ============================================================================
@@ -365,7 +379,7 @@ async function scrapeProduct(url) {
   try {
     console.log('Scraping:', url);
     const response = await axios.get(url, { 
-      timeout: 30000,
+      timeout: 40000,
       headers: {
         'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
       }
@@ -608,12 +622,43 @@ async function main() {
   
   db.close();
   console.log('\n✅ Scraping complete!');
+  // Print collected error log if available
+  try {
+    const logPath = path.join(__dirname, 'error.log');
+    if (fs.existsSync(logPath)) {
+      console.log('\n' + '='.repeat(70));
+      console.log('ERROR LOG (last entries)');
+      console.log('='.repeat(70));
+      const lines = fs.readFileSync(logPath, 'utf8').trim().split('\n');
+      const tail = lines.slice(-200); // show last 200 lines to avoid huge output
+      tail.forEach(l => console.log(l));
+      console.log('='.repeat(70));
+    }
+  } catch (e) {
+    console.error('Could not read error.log:', e.message);
+  }
 }
 
 // Run if called directly
 if (require.main === module) {
   main().catch(error => {
     console.error('Fatal error:', error);
+    logError('fatal', error);
+    // Print error.log on fatal
+    try {
+      const logPath = path.join(__dirname, 'error.log');
+      if (fs.existsSync(logPath)) {
+        console.log('\n' + '='.repeat(70));
+        console.log('ERROR LOG (fatal)');
+        console.log('='.repeat(70));
+        const lines = fs.readFileSync(logPath, 'utf8').trim().split('\n');
+        const tail = lines.slice(-200);
+        tail.forEach(l => console.log(l));
+        console.log('='.repeat(70));
+      }
+    } catch (e) {
+      console.error('Could not read error.log during fatal handling:', e.message);
+    }
     process.exit(1);
   });
 }
