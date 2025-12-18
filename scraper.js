@@ -11,8 +11,12 @@ const path = require('path');
 const SITEMAP_URL = 'https://www.unimart.com/sitemap.xml';
 const DB_PATH = path.join(__dirname, 'prices.db');
 const MAX_PRODUCTS_PER_RUN = 50; // Maximum products to scrape per run (processes incrementally)
-const REQUEST_DELAY_MS = 1000; // Delay between requests in milliseconds
-const SITEMAP_DELAY_MS = 500; // Delay between sitemap fetches
+
+// ⚡ OPTIMIZACIÓN DE VELOCIDAD:
+// Puedes ajustar estos valores para balancear velocidad vs. seguridad contra bloqueos
+const REQUEST_DELAY_MS = 600; // Delay entre requests de productos (500-1000ms recomendado)
+const SITEMAP_DELAY_MS = 250; // Delay entre sitemaps (200-500ms recomendado)
+const PARALLEL_REQUESTS = 2; // Número de requests paralelos (1-3 recomendado, 1=secuencial)
 const MAX_SITEMAPS_PER_RUN = 100; // Maximum sitemaps to fetch per run (for incremental processing)
 
 // Initialize database
@@ -357,25 +361,46 @@ async function main() {
   let successCount = 0;
   let errorCount = 0;
   
-  for (let i = 0; i < limit; i++) {
-    const url = urlsToScrape[i];
-    console.log(`[${i + 1}/${limit}] Processing: ${url}`);
-    const productData = await scrapeProduct(url);
+  // Process products in parallel batches
+  for (let i = 0; i < limit; i += PARALLEL_REQUESTS) {
+    const batch = [];
+    const batchSize = Math.min(PARALLEL_REQUESTS, limit - i);
     
-    if (productData) {
-      saveProductPrice(db, productData);
-      successCount++;
-    } else {
-      errorCount++;
+    // Create parallel requests for this batch
+    for (let j = 0; j < batchSize; j++) {
+      const index = i + j;
+      const url = urlsToScrape[index];
+      console.log(`[${index + 1}/${limit}] Processing: ${url}`);
+      
+      batch.push(
+        scrapeProduct(url).then(productData => {
+          if (productData) {
+            saveProductPrice(db, productData);
+            return { success: true };
+          }
+          return { success: false };
+        })
+      );
     }
     
-    // Progress update every 10 products
-    if ((i + 1) % 10 === 0) {
-      console.log(`Progress: ${i + 1}/${limit} products processed (${successCount} successful, ${errorCount} errors)`);
+    // Wait for all requests in this batch to complete
+    const results = await Promise.all(batch);
+    results.forEach(result => {
+      if (result.success) {
+        successCount++;
+      } else {
+        errorCount++;
+      }
+    });
+    
+    // Progress update every batch
+    const processed = Math.min(i + PARALLEL_REQUESTS, limit);
+    if (processed % 10 === 0 || processed === limit) {
+      console.log(`Progress: ${processed}/${limit} products processed (${successCount} successful, ${errorCount} errors)`);
     }
     
-    // Be nice to the server - add delay between requests
-    if (i < limit - 1) {
+    // Be nice to the server - add delay between batches
+    if (i + PARALLEL_REQUESTS < limit) {
       await new Promise(resolve => setTimeout(resolve, REQUEST_DELAY_MS));
     }
   }

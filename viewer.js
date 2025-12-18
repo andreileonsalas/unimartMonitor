@@ -1,5 +1,8 @@
 let db;
 let allProducts = [];
+let displayedProducts = [];
+const PRODUCTS_PER_PAGE = 10;
+let currentPage = 1;
 
 async function loadDatabase() {
   try {
@@ -124,7 +127,10 @@ function displayData() {
     }));
 
     console.log('Parsed products:', allProducts);
-    displayProducts(allProducts);
+    
+    // Display first page of products
+    displayedProducts = allProducts.slice(0, PRODUCTS_PER_PAGE);
+    displayProducts(displayedProducts);
 
     // Setup search
     document.getElementById('searchInput').addEventListener('input', handleSearch);
@@ -147,16 +153,16 @@ function displayData() {
   }
 }
 
-function displayProducts(products) {
+function displayProducts(products, append = false) {
   console.log('Displaying products:', products);
   const productsList = document.getElementById('productsList');
     
-  if (products.length === 0) {
+  if (products.length === 0 && !append) {
     productsList.innerHTML = '<div class="empty-state"><div class="empty-state-icon">🔍</div><p>No products found</p></div>';
     return;
   }
 
-  productsList.innerHTML = products.map(product => {
+  const productsHtml = products.map(product => {
     let priceChange = '';
     let lowestPriceBadge = '';
     
@@ -187,6 +193,56 @@ function displayProducts(products) {
             </div>
         `;
   }).join('');
+  
+  if (append) {
+    productsList.innerHTML += productsHtml;
+  } else {
+    productsList.innerHTML = productsHtml;
+  }
+  
+  // Update or add "Load More" button
+  updateLoadMoreButton();
+}
+
+function updateLoadMoreButton() {
+  const productsList = document.getElementById('productsList');
+  const existingButton = document.getElementById('loadMoreBtn');
+  
+  // Remove existing button if present
+  if (existingButton) {
+    existingButton.remove();
+  }
+  
+  // Check if there are more products to load
+  if (displayedProducts.length < allProducts.length) {
+    const remaining = allProducts.length - displayedProducts.length;
+    const buttonHtml = `
+      <div id="loadMoreBtn" style="text-align: center; padding: 2rem;">
+        <button class="btn btn-primary btn-lg" onclick="loadMoreProducts()" style="
+          background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+          border: none;
+          padding: 1rem 2rem;
+          font-size: 1rem;
+          border-radius: 10px;
+          cursor: pointer;
+          transition: transform 0.2s, box-shadow 0.2s;
+        " onmouseover="this.style.transform='translateY(-2px)'; this.style.boxShadow='0 4px 12px rgba(102, 126, 234, 0.4)'" 
+           onmouseout="this.style.transform='translateY(0)'; this.style.boxShadow='none'">
+          <i class="bi bi-arrow-down-circle"></i> Cargar todos los productos restantes (${remaining})<br>
+          <small style="font-size: 0.85rem; opacity: 0.9;">⚠️ La página podría volverse más lenta</small>
+        </button>
+      </div>
+    `;
+    productsList.insertAdjacentHTML('beforeend', buttonHtml);
+  }
+}
+
+function loadMoreProducts() {
+  const start = displayedProducts.length;
+  const remainingProducts = allProducts.slice(start);
+  
+  displayedProducts = allProducts.slice(0); // Load all products
+  displayProducts(remainingProducts, true);
 }
 
 function toggleProductDetails(productId) {
@@ -317,7 +373,9 @@ function handleSearch(event) {
   const searchTerm = event.target.value.toLowerCase();
     
   if (!searchTerm) {
-    displayProducts(allProducts);
+    currentPage = 1;
+    displayedProducts = allProducts.slice(0, PRODUCTS_PER_PAGE);
+    displayProducts(displayedProducts);
     return;
   }
 
@@ -327,7 +385,9 @@ function handleSearch(event) {
         (product.sku && product.sku.toLowerCase().includes(searchTerm))
   );
 
-  displayProducts(filtered);
+  currentPage = 1;
+  displayedProducts = filtered.slice(0, PRODUCTS_PER_PAGE);
+  displayProducts(displayedProducts);
 }
 
 function showEmptyState() {
