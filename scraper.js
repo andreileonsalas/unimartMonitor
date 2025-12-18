@@ -16,8 +16,9 @@ const MAX_PRODUCTS_PER_RUN = 50; // Maximum products to scrape per run (processe
 // Puedes ajustar estos valores para balancear velocidad vs. seguridad contra bloqueos
 const REQUEST_DELAY_MS = 600; // Delay entre requests de productos (500-1000ms recomendado)
 const SITEMAP_DELAY_MS = 250; // Delay entre sitemaps (200-500ms recomendado)
-const PARALLEL_REQUESTS = 2; // Número de requests paralelos (1-3 recomendado, 1=secuencial)
-const MAX_SITEMAPS_PER_RUN = 100; // Maximum sitemaps to fetch per run (for incremental processing)
+const PARALLEL_REQUESTS = 200; // Número de requests paralelos (product page requests)
+const SITEMAP_PARALLEL_REQUESTS = 60; // Número de requests paralelos para descargar sitemaps (cuidado con carga)
+const MAX_SITEMAPS_PER_RUN = 0; // Maximum sitemaps to fetch per run (for incremental processing). Set to 0 to process all.
 
 // Initialize database
 function initDatabase() {
@@ -48,9 +49,26 @@ function initDatabase() {
       last_updated DATETIME DEFAULT CURRENT_TIMESTAMP
     );
 
+    CREATE TABLE IF NOT EXISTS sitemap_cache (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      sitemap_index_url TEXT UNIQUE NOT NULL,
+      etag TEXT,
+      last_modified TEXT,
+      body_hash TEXT,
+      fetched_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    );
+
     CREATE INDEX IF NOT EXISTS idx_product_id ON prices(product_id);
     CREATE INDEX IF NOT EXISTS idx_scraped_at ON prices(scraped_at);
     CREATE INDEX IF NOT EXISTS idx_sku ON products(sku);
+    CREATE TABLE IF NOT EXISTS scraping_failures (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      url TEXT UNIQUE NOT NULL,
+      status_code INTEGER,
+      error_message TEXT,
+      last_attempt DATETIME DEFAULT CURRENT_TIMESTAMP,
+      attempts INTEGER DEFAULT 0
+    );
   `);
   
   return db;
@@ -76,21 +94,103 @@ function initDatabase() {
 async function fetchSitemap(db) {
   try {
     console.log('Fetching sitemap index from:', SITEMAP_URL);
-    const response = await axios.get(SITEMAP_URL, { timeout: 10000 });
+    // First, try a HEAD request to check ETag / Last-Modified
+    let headInfo = {};
+    try {
+      const headResp = await axios.head(SITEMAP_URL, { timeout: 8000 });
+      headInfo.etag = headResp.headers['etag'] || null;
+      headInfo.lastModified = headResp.headers['last-modified'] || null;
+    } catch (e) {
+      // HEAD may be unsupported; we'll fall back to GET
+      headInfo = {};
+    }
+
     const parser = new xml2js.Parser();
-    const result = await parser.parseStringPromise(response.data);
+
+    // Check cache table for this sitemap index
+    const getCache = db.prepare('SELECT etag, last_modified, body_hash FROM sitemap_cache WHERE sitemap_index_url = ?');
+    const cacheRow = getCache.get(SITEMAP_URL);
+
+    let shouldFetchIndexBody = true;
+    if (cacheRow) {
+      if (headInfo.etag && cacheRow.etag && headInfo.etag === cacheRow.etag) {
+        shouldFetchIndexBody = false;
+      } else if (headInfo.lastModified && cacheRow.last_modified && headInfo.lastModified === cacheRow.last_modified) {
+        shouldFetchIndexBody = false;
+      }
+    }
+
+    if (!shouldFetchIndexBody) {
+      console.log('Cache HIT: sitemap index appears unchanged (ETag/Last-Modified matched).');
+    } else {
+      console.log('Cache MISS: sitemap index changed or not cached. Downloading index.');
+    }
+
+    let result;
+    let responseBody;
+    if (!shouldFetchIndexBody) {
+      // If headers indicate unchanged, attempt to reuse cached body hash path
+      console.log('Sitemap index unchanged (headers). Will prefer cached local sitemaps if network GET fails.');
+      // We'll still try to GET the body but if GET fails we'll fall back to cacheRow.body_hash usage
+      try {
+        const getResp = await axios.get(SITEMAP_URL, { timeout: 10000 });
+        responseBody = getResp.data;
+        result = await parser.parseStringPromise(responseBody);
+      } catch (e) {
+        // Could not GET (network), but headers indicated unchanged — we'll try to use cached listing from local files
+        responseBody = null;
+        result = null;
+      }
+    } else {
+      const getResp = await axios.get(SITEMAP_URL, { timeout: 10000 });
+      responseBody = getResp.data;
+      result = await parser.parseStringPromise(responseBody);
+
+      // compute a simple body hash to detect changes even if headers absent
+      const crypto = require('crypto');
+      const bodyHash = crypto.createHash('sha256').update(responseBody).digest('hex');
+
+      // Upsert cache row
+      const upsert = db.prepare(`
+        INSERT INTO sitemap_cache (sitemap_index_url, etag, last_modified, body_hash, fetched_at)
+        VALUES (?, ?, ?, ?, datetime('now'))
+        ON CONFLICT(sitemap_index_url) DO UPDATE SET
+          etag = excluded.etag,
+          last_modified = excluded.last_modified,
+          body_hash = excluded.body_hash,
+          fetched_at = excluded.fetched_at
+      `);
+      upsert.run(SITEMAP_URL, headInfo.etag || null, headInfo.lastModified || null, bodyHash);
+    }
     
     // Use a Set to deduplicate URLs (products can appear in multiple sitemaps)
     const urlSet = new Set();
     
     // Check if this is a sitemap index (contains references to other sitemaps)
-    if (result.sitemapindex && result.sitemapindex.sitemap) {
+    if (result && result.sitemapindex && result.sitemapindex.sitemap) {
       console.log('Found sitemap index with', result.sitemapindex.sitemap.length, 'sitemaps');
       
       // Filter for product sitemaps only
-      const productSitemaps = result.sitemapindex.sitemap.filter(s => 
+      let productSitemaps = result.sitemapindex.sitemap.filter(s => 
         s.loc && s.loc[0] && s.loc[0].includes('/products/')
       );
+
+      // If result is null (couldn't GET but headers matched), try to load local sitemaps folder filenames
+      if ((!result || productSitemaps.length === 0) && cacheRow) {
+        try {
+          const fs = require('fs');
+          const sitemapDir = path.join(__dirname, 'sitemaps');
+          if (fs.existsSync(sitemapDir)) {
+            const files = fs.readdirSync(sitemapDir).filter(f => f.endsWith('.xml'));
+            productSitemaps = files
+              .filter(f => f.includes('products'))
+              .map(f => ({ loc: [new URL(f, SITEMAP_URL).toString()] }));
+            console.log(`Loaded ${productSitemaps.length} product sitemap entries from local sitemaps folder due to cached index.`);
+          }
+        } catch (e) {
+          console.warn('Could not load local sitemaps folder for cache fallback:', e.message);
+        }
+      }
       
       console.log(`Found ${productSitemaps.length} product sitemaps`);
       
@@ -111,40 +211,104 @@ async function fetchSitemap(db) {
       }
       
       const startIndex = state.last_sitemap_index;
-      const endIndex = Math.min(startIndex + MAX_SITEMAPS_PER_RUN, productSitemaps.length);
+      // If MAX_SITEMAPS_PER_RUN is 0 => process all sitemaps from startIndex to end
+      const requestedLimit = MAX_SITEMAPS_PER_RUN === 0 ? productSitemaps.length : MAX_SITEMAPS_PER_RUN;
+      const endIndex = Math.min(startIndex + requestedLimit, productSitemaps.length);
       
       console.log(`Processing sitemaps ${startIndex + 1} to ${endIndex} of ${productSitemaps.length}`);
-      console.log(`Fetching ${endIndex - startIndex} product sitemaps...`);
+      console.log(`Fetching ${endIndex - startIndex} product sitemaps... (MAX_SITEMAPS_PER_RUN=${MAX_SITEMAPS_PER_RUN})`);
       
+      // We'll fetch product sitemaps in parallel batches to speed up.
       let failedSitemaps = 0;
-      
-      // Fetch product sitemaps in this batch
-      for (let i = startIndex; i < endIndex; i++) {
-        const sitemapUrl = productSitemaps[i].loc[0];
-        
-        try {
-          console.log(`[${i - startIndex + 1}/${endIndex - startIndex}] Fetching sitemap: ${sitemapUrl}`);
-          
-          const sitemapResponse = await axios.get(sitemapUrl, { timeout: 10000 });
-          const sitemapResult = await parser.parseStringPromise(sitemapResponse.data);
-          
-          if (sitemapResult.urlset && sitemapResult.urlset.url) {
-            for (const entry of sitemapResult.urlset.url) {
-              if (entry.loc && entry.loc[0]) {
-                urlSet.add(entry.loc[0]); // Set automatically deduplicates
+      const fs = require('fs');
+      const sitemapDir = path.join(__dirname, 'sitemaps');
+
+      for (let i = startIndex; i < endIndex; i += SITEMAP_PARALLEL_REQUESTS) {
+        const batchEnd = Math.min(i + SITEMAP_PARALLEL_REQUESTS, endIndex);
+        const batch = [];
+
+        for (let k = i; k < batchEnd; k++) {
+          const sitemapUrl = productSitemaps[k].loc[0];
+          const filename = path.basename(new URL(sitemapUrl).pathname);
+          const localPath = path.join(sitemapDir, filename);
+          const preferLocal = !!cacheRow && !shouldFetchIndexBody;
+
+          batch.push((async () => {
+            try {
+              console.log(`[${k - startIndex + 1}/${endIndex - startIndex}] Fetching sitemap: ${sitemapUrl}`);
+
+              let sitemapResponseData = null;
+
+              if (preferLocal && fs.existsSync(localPath)) {
+                sitemapResponseData = fs.readFileSync(localPath, 'utf8');
+                console.log(`Cache HIT - Loaded sitemap from cache file: ${localPath}`);
+              } else {
+                try {
+                  const sitemapResponse = await axios.get(sitemapUrl, { timeout: 10000 });
+                  sitemapResponseData = sitemapResponse.data;
+                  console.log(`Cache MISS - Fetched sitemap from network: ${sitemapUrl}`);
+
+                  try {
+                    if (!fs.existsSync(sitemapDir)) fs.mkdirSync(sitemapDir, { recursive: true });
+                    fs.writeFileSync(localPath, sitemapResponseData, 'utf8');
+                  } catch (writeErr) {
+                    console.warn('Warning: could not write sitemap to local cache:', writeErr.message);
+                  }
+                } catch (e) {
+                  if (fs.existsSync(localPath)) {
+                    sitemapResponseData = fs.readFileSync(localPath, 'utf8');
+                    console.log(`Cache HIT (fallback) - Loaded sitemap from cache file: ${localPath}`);
+                  } else {
+                    throw e;
+                  }
+                }
               }
+
+              const sitemapResult = await parser.parseStringPromise(sitemapResponseData);
+              if (sitemapResult && sitemapResult.urlset && sitemapResult.urlset.url) {
+                for (const entry of sitemapResult.urlset.url) {
+                  if (entry.loc && entry.loc[0]) urlSet.add(entry.loc[0]);
+                }
+              }
+
+              return { success: true, sitemapUrl };
+            } catch (err) {
+              console.error(`Error fetching sitemap ${sitemapUrl}:`, err.message);
+              return { success: false, sitemapUrl };
             }
-          }
-          
-          // Be nice to the server - delay between sitemap fetches
-          if (i < endIndex - 1) {
-            await new Promise(resolve => setTimeout(resolve, SITEMAP_DELAY_MS));
-          }
-        } catch (error) {
-          console.error(`Error fetching sitemap ${sitemapUrl}:`, error.message);
-          failedSitemaps++;
-          // Continue with other sitemaps - failed ones will be retried in next cycle
+          })());
         }
+
+        const batchResults = await Promise.all(batch);
+        for (const r of batchResults) if (!r.success) failedSitemaps++;
+
+        // polite delay between batches
+        if (i + SITEMAP_PARALLEL_REQUESTS < endIndex) await new Promise(resolve => setTimeout(resolve, SITEMAP_DELAY_MS));
+      }
+
+      // If we reached here and there were no failures, update sitemap_cache to reflect the successful fetch cycle
+      if (failedSitemaps === 0) {
+        try {
+          const upsertSuccess = db.prepare(`
+            INSERT INTO sitemap_cache (sitemap_index_url, etag, last_modified, body_hash, fetched_at)
+            VALUES (?, ?, ?, ?, datetime('now'))
+            ON CONFLICT(sitemap_index_url) DO UPDATE SET
+              etag = excluded.etag,
+              last_modified = excluded.last_modified,
+              body_hash = excluded.body_hash,
+              fetched_at = excluded.fetched_at
+          `);
+          // we already computed body hash earlier when doing GET of index; reuse cacheRow values if present
+          const etag = headInfo.etag || (cacheRow && cacheRow.etag) || null;
+          const lastModified = headInfo.lastModified || (cacheRow && cacheRow.last_modified) || null;
+          const bodyHash = (cacheRow && cacheRow.body_hash) || null;
+          upsertSuccess.run(SITEMAP_URL, etag, lastModified, bodyHash);
+          console.log('Sitemap cache updated atomically after successful sitemap downloads.');
+        } catch (e) {
+          console.warn('Warning: could not update sitemap_cache atomically:', e.message);
+        }
+      } else {
+        console.log(`⚠️  ${failedSitemaps} sitemap(s) failed to fetch in this cycle; sitemap_cache not updated atomically.`);
       }
       
       if (failedSitemaps > 0) {
@@ -201,7 +365,7 @@ async function scrapeProduct(url) {
   try {
     console.log('Scraping:', url);
     const response = await axios.get(url, { 
-      timeout: 10000,
+      timeout: 30000,
       headers: {
         'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
       }
@@ -265,8 +429,9 @@ async function scrapeProduct(url) {
       currency
     };
   } catch (error) {
-    console.error(`Error scraping ${url}:`, error.message);
-    return null;
+    const status = error.response && error.response.status ? error.response.status : null;
+    console.error(`Error scraping ${url}:`, status || error.message);
+    return { url, error: true, status, message: error.message };
   }
 }
 
@@ -374,10 +539,33 @@ async function main() {
       
       batch.push(
         scrapeProduct(url).then(productData => {
-          if (productData) {
+          if (productData && !productData.error) {
+            // Successful scrape -> save and remove any previous failure record
             saveProductPrice(db, productData);
+            try {
+              db.prepare('DELETE FROM scraping_failures WHERE url = ?').run(productData.url);
+            } catch (e) {
+              console.error('Error removing failure record:', e.message);
+            }
             return { success: true };
           }
+
+          // productData.error === true -> log failure into scraping_failures
+          try {
+            const upsert = db.prepare(`
+              INSERT INTO scraping_failures (url, status_code, error_message, last_attempt, attempts)
+              VALUES (?, ?, ?, datetime('now'), 1)
+              ON CONFLICT(url) DO UPDATE SET
+                status_code = excluded.status_code,
+                error_message = excluded.error_message,
+                last_attempt = excluded.last_attempt,
+                attempts = scraping_failures.attempts + 1
+            `);
+            upsert.run(productData.url, productData.status, productData.message);
+          } catch (e) {
+            console.error('Error recording failure:', e.message);
+          }
+
           return { success: false };
         })
       );
