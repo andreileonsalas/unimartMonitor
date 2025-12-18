@@ -159,22 +159,27 @@ La aplicación muestra:
 
 ## Features
 
-- 📈 **Daily Price Tracking**: Automatically scrapes prices from unimart.com using GitHub Actions
+- 📈 **Comprehensive Price Tracking**: Automatically scrapes prices from ALL ~38,000 products on unimart.com
+- 🔄 **Incremental Scraping**: Processes products progressively over ~25 days to build complete database
 - 💾 **SQLite Storage**: All data stored in a single SQLite file - no external database needed
 - 🌐 **Browser-Based Viewer**: View price history directly in your browser using client-side SQLite
 - 🤖 **Automated**: Runs daily via GitHub Actions - no server required
 - 🔍 **Search & Filter**: Easily search through tracked products
 - 📉 **Price History**: See how prices change over time for each product
 - 🎨 **Beautiful UI**: Clean, modern interface with price change indicators
+- ♻️ **Smart Deduplication**: Automatically handles products appearing in multiple sitemaps
 
 ## How It Works
 
 1. **GitHub Actions** runs daily to:
-   - Fetch the sitemap from https://www.unimart.com/sitemap.xml
-   - Extract product URLs
-   - Scrape current prices
+   - Fetch the sitemap index from https://www.unimart.com/sitemap.xml (1,228 product sitemaps)
+   - Process 100 sitemaps per run (~2,400 products)
+   - Scrape 50 products per run with rate limiting
+   - Use Set-based deduplication to avoid duplicate entries
+   - Track progress in database to resume where it left off
    - Store data in SQLite database (`prices.db`)
    - Commit changes back to the repository
+   - **Complete cycle**: ~25 days to scrape all products, then starts over to update prices
 
 2. **Browser Viewer** (`index.html`):
    - Loads the SQLite database directly in your browser using sql.js
@@ -287,7 +292,7 @@ You can also trigger it manually:
 - `title`: Product title
 - `last_scraped`: Last scrape timestamp
 
-**Note:** Both URL and SKU are stored to maintain dual reference. If Unimart changes the URL or SKU, historical data is preserved.
+**Note:** Both URL and SKU are stored to maintain dual reference. If Unimart changes the URL or SKU, historical data is preserved. The URL column has a UNIQUE constraint to prevent duplicate entries.
 
 ### Prices Table
 - `id`: Primary key
@@ -296,15 +301,47 @@ You can also trigger it manually:
 - `currency`: Currency code (CRC for Costa Rican Colón, USD, EUR, etc.)
 - `scraped_at`: Timestamp of scrape
 
+### Scraping State Table (New)
+- `id`: Primary key (always 1)
+- `last_sitemap_index`: Index of the last processed sitemap (0-1227)
+- `total_sitemaps`: Total number of sitemaps (1228)
+- `last_updated`: Last update timestamp
+
+This table tracks scraping progress across runs, enabling the scraper to resume where it left off.
+
 ## Configuration
 
 ### Scraper Settings
 
+The scraper now uses **incremental scraping** to process ALL products from Unimart over time:
+
 Edit `scraper.js` to customize:
 
-- **Product limit**: Change `const MAX_PRODUCTS_PER_RUN = 50;` to scrape more/fewer products per run
-- **Delay**: Adjust `const REQUEST_DELAY_MS = 1000;` to change delay between requests (in milliseconds)
-- **URL filters**: The scraper automatically filters for `/products/` URLs from Unimart
+- **Products per run**: `const MAX_PRODUCTS_PER_RUN = 50;` - Number of products to scrape in each run
+- **Sitemaps per run**: `const MAX_SITEMAPS_PER_RUN = 100;` - Number of sitemaps to fetch in each run  
+- **Request delay**: `const REQUEST_DELAY_MS = 1000;` - Delay between product scrapes (milliseconds)
+- **Sitemap delay**: `const SITEMAP_DELAY_MS = 500;` - Delay between sitemap fetches (milliseconds)
+
+#### How Incremental Scraping Works
+
+1. **Sitemap Processing**: There are 1,228 product sitemaps with ~38,000 total products
+2. **Batch Processing**: Each run processes 100 sitemaps (~2,400 products)
+3. **State Tracking**: Progress is saved in the database's `scraping_state` table
+4. **Automatic Cycling**: After processing all 1,228 sitemaps, it starts over from the beginning
+5. **Smart Prioritization**: New products are scraped first, then existing products are updated
+6. **Deduplication**: Products appearing in multiple sitemaps are automatically deduplicated by URL
+
+**Timeline**: With default settings (100 sitemaps/run, 50 products/run):
+- Complete first pass: ~25 daily runs (~25 days)
+- All 38,000+ products will be tracked
+- Price history builds up over time for trend analysis
+
+**Benefits**:
+- ✅ Processes ALL products from the sitemap (not just 50)
+- ✅ Respectful to Unimart's servers (rate limited)
+- ✅ Builds comprehensive price history over time
+- ✅ Automatic duplicate handling
+- ✅ Resumes where it left off after each run
 
 ### Workflow Schedule
 
@@ -312,7 +349,7 @@ Edit `.github/workflows/scrape.yml` to change the schedule:
 
 ```yaml
 schedule:
-  - cron: '0 2 * * *'  # Change this line
+  - cron: '0 2 * * *'  # Runs daily at 2 AM UTC
 ```
 
 ## Technologies Used
@@ -428,20 +465,55 @@ npm run scrape
 
 ## Troubleshooting
 
+### GitHub Pages or CDN URLs showing empty
+
+If https://andreileonsalas.github.io/unimartMonitor/ or the CDN URLs show "0 products":
+
+1. **Verify files are on main branch**: The files must be committed to the `main` branch for deployment
+2. **Check database exists**: Ensure `prices.db` is committed and pushed to `main`
+3. **Merge this PR**: This PR contains the fixes - merge it to `main` first
+4. **Wait for deployment**: GitHub Pages can take 2-5 minutes to deploy after merging
+5. **Hard refresh**: Press Ctrl+F5 (Windows/Linux) or Cmd+Shift+R (Mac) to clear cache
+6. **Check browser console**: Open DevTools (F12) and look for any JavaScript errors
+7. **Verify SQL.js loads**: The page needs to load SQL.js from CDN - check Network tab in DevTools
+
+**Common issues**:
+- **Database not on main**: Run the scraper and ensure the updated `prices.db` is on the `main` branch
+- **CDN blocking**: Some ad blockers or privacy extensions may block CDN resources
+- **Cache**: Browser cache may be showing old version - do a hard refresh
+- **GitHub Pages not enabled**: Verify GitHub Pages is enabled in repository Settings → Pages
+
 ### Database not loading in browser
 - Make sure you have run the scraper at least once
-- Verify `prices.db` exists in the repository
-- Check browser console for errors
+- Verify `prices.db` exists in the repository on the `main` branch  
+- Check browser console for errors (F12 → Console tab)
+- Try accessing the database directly: `https://andreileonsalas.github.io/unimartMonitor/prices.db`
 
 ### Scraper not finding products
 - The product URL patterns may need adjustment
 - Check if unimart.com's sitemap structure has changed
 - Modify the URL filter logic in `scraper.js`
+- Check the scraping_state table: `sqlite3 prices.db "SELECT * FROM scraping_state;"`
 
 ### Price extraction issues
 - Product page HTML selectors may need updating
 - Check the actual HTML structure of unimart.com product pages
 - Adjust the selectors in the `scrapeProduct()` function
+
+### Incremental scraping progress
+
+To check scraping progress:
+
+```bash
+# Check how many products and prices are in the database
+sqlite3 prices.db "SELECT COUNT(*) FROM products; SELECT COUNT(*) FROM prices;"
+
+# Check scraping state (which sitemap we're on)
+sqlite3 prices.db "SELECT * FROM scraping_state;"
+
+# View recently added products
+sqlite3 prices.db "SELECT title, price, currency FROM products p JOIN prices pr ON p.id = pr.product_id ORDER BY pr.scraped_at DESC LIMIT 10;"
+```
 
 ## License
 
