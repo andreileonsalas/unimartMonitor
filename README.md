@@ -424,12 +424,6 @@ Breve checklist y contexto para que una IA (o nuevo desarrollador) entienda ráp
    - Políticas de eliminación de productos (por ejemplo, marcar productos como 'retirados' tras N errores 404).
    - Cambios que aumenten significativamente la carga sobre `unimart.com` (aumentar paralelismo sin pruebas).
 
-- **Comandos útiles para debugging y ver el estado**:
-   - `node find_product.js <product_url>` → busca un producto en la DB.
-   - `node show_failure.js <product_url>` → muestra registros en `scraping_failures`.
-   - `node reset_scraping_state.js` → reinicia `last_sitemap_index` a 0.
-   - `node download_sitemaps.js` → descarga copias locales de los sitemaps (útil para pruebas offline).
-
 - **Dónde buscar logs**:
    - `error.log` → errores acumulados (se imprimen al final de cada ejecución para CI).
    - Salida estándar (stdout) → progreso y `Cache HIT`/`Cache MISS` logs.
