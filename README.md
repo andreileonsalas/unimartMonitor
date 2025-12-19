@@ -399,6 +399,48 @@ unimartMonitor/
 const SITEMAP_URL = 'https://www.unimart.com/sitemap.xml';
 ```
 
+## TODO (para una IA que edite o mantenga el proyecto)
+
+Breve checklist y contexto para que una IA (o nuevo desarrollador) entienda rápidamente qué hacer y pueda editar el scraper de forma segura:
+
+- **Contexto del proyecto**: `scraper.js` descarga el `sitemap.xml`, extrae sitemaps de productos y scrapea páginas de productos, guardando resultados en `prices.db` (SQLite) usando `better-sqlite3`.
+- **Dependencias clave**: `axios`, `cheerio`, `xml2js`, `better-sqlite3`.
+- **Dónde comenzar**: revisar `scraper.js` — funciones importantes: `initDatabase()`, `fetchSitemap(db)`, `scrapeProduct(url)`, `saveProductPrice(db, productData)`, `main()`.
+
+- **Qué necesita la IA para entender/editar correctamente**:
+   - Conocer los selectores actuales de la página de producto (`h1`, `.money`, script JSON con `sku`) y cómo parsear precios/moneda.
+   - Entender el esquema de la base de datos (tablas `products`, `prices`, `scraping_state`, `scraping_failures`, `sitemap_cache`).
+   - Saber que `MAX_SITEMAPS_PER_RUN = 0` significa procesar todos los sitemaps en una sola ejecución.
+   - Respetar los delays (`REQUEST_DELAY_MS`, `SITEMAP_DELAY_MS`) y los límites de concurrencia (`PARALLEL_REQUESTS`, `SITEMAP_PARALLEL_REQUESTS`) para evitar bloqueos.
+
+- **Acciones seguras que puede automatizar la IA**:
+   - Actualizar selectores de `scrapeProduct()` si la estructura HTML cambia.
+   - Ajustar `PARALLEL_REQUESTS` y `REQUEST_DELAY_MS` si se observan bloqueos o lentitud.
+   - Añadir reintentos/backoff en descargas fallidas (sitemaps y productos).
+   - Añadir pruebas unitarias para parsing de precio/sku a partir de muestras HTML.
+
+- **Acciones que requieren revisión humana**:
+   - Cambios que impliquen almacenar nuevas columnas en `prices.db` o migraciones de esquema.
+   - Políticas de eliminación de productos (por ejemplo, marcar productos como 'retirados' tras N errores 404).
+   - Cambios que aumenten significativamente la carga sobre `unimart.com` (aumentar paralelismo sin pruebas).
+
+- **Comandos útiles para debugging y ver el estado**:
+   - `node find_product.js <product_url>` → busca un producto en la DB.
+   - `node show_failure.js <product_url>` → muestra registros en `scraping_failures`.
+   - `node reset_scraping_state.js` → reinicia `last_sitemap_index` a 0.
+   - `node download_sitemaps.js` → descarga copias locales de los sitemaps (útil para pruebas offline).
+
+- **Dónde buscar logs**:
+   - `error.log` → errores acumulados (se imprimen al final de cada ejecución para CI).
+   - Salida estándar (stdout) → progreso y `Cache HIT`/`Cache MISS` logs.
+
+- **Prueba recomendada después de cambiar el scraper**:
+   1. Ejecutar `node scraper.js` en modo corto (`MAX_SITEMAPS_PER_RUN = 5`) para validar parsing y logs.
+   2. Revisar `error.log` y la tabla `scraping_failures` por fallos.
+   3. Revisar `prices.db` con `find_product.js`.
+
+Esta sección está pensada para que una IA pueda tener un checklist claro y actúe con cautela sobre los cambios que impactan datos o tráfico.
+
 #### 2. Si Cambia la Estructura del Sitemap Index
 
 **Archivo**: `scraper.js` (líneas 58-90)
