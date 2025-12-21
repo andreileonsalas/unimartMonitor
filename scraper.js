@@ -16,9 +16,10 @@ const MAX_PRODUCTS_PER_RUN = 50; // Maximum products to scrape per run (processe
 // ⚡ OPTIMIZACIÓN DE VELOCIDAD:
 // Puedes ajustar estos valores para balancear velocidad vs. seguridad contra bloqueos
 const REQUEST_DELAY_MS = 600; // Delay entre requests de productos (500-1000ms recomendado)
-const SITEMAP_DELAY_MS = 250; // Delay entre sitemaps (200-500ms recomendado)
+const SITEMAP_DELAY_MS = 4000; // Delay entre sitemaps (200-500ms recomendado)
 const PARALLEL_REQUESTS = 200; // Número de requests paralelos (product page requests)
-const SITEMAP_PARALLEL_REQUESTS = 60; // Número de requests paralelos para descargar sitemaps (cuidado con carga)
+const SITEMAP_PARALLEL_REQUESTS = 15; // Número de requests paralelos para descargar sitemaps (cuidado con carga)
+const SITEMAP_RETRY_PARALLEL_REQUESTS = 3; // Requests paralelos para reintentar sitemaps vacíos (más conservador para evitar soft-blocking)
 const MAX_SITEMAPS_PER_RUN = 0; // Maximum sitemaps to fetch per run (for incremental processing). Set to 0 to process all.
 
 // Initialize database
@@ -234,6 +235,7 @@ async function fetchSitemap(db) {
       
       // We'll fetch product sitemaps in parallel batches to speed up.
       let failedSitemaps = 0;
+      const emptySitemaps = []; // Track sitemaps that appear empty (potential soft-blocking)
       const fs = require('fs');
       const sitemapDir = path.join(__dirname, 'sitemaps');
 
@@ -279,25 +281,125 @@ async function fetchSitemap(db) {
               }
 
               const sitemapResult = await parser.parseStringPromise(sitemapResponseData);
+              let urlCount = 0;
+              let hasOnlyBaseUrl = false;
+              
               if (sitemapResult && sitemapResult.urlset && sitemapResult.urlset.url) {
                 for (const entry of sitemapResult.urlset.url) {
-                  if (entry.loc && entry.loc[0]) urlSet.add(entry.loc[0]);
+                  if (entry.loc && entry.loc[0]) {
+                    urlSet.add(entry.loc[0]);
+                    urlCount++;
+                    // Check if it's only the base URL (sign of empty/blocked response)
+                    if (entry.loc[0] === 'https://www.unimart.com/' || entry.loc[0] === 'https://www.unimart.com') {
+                      hasOnlyBaseUrl = true;
+                    }
+                  }
                 }
               }
 
-              return { success: true, sitemapUrl };
+              // Detect "empty" sitemaps: only 1 URL and it's the base URL
+              if (urlCount <= 1 && hasOnlyBaseUrl) {
+                console.log(`⚠️  Sitemap appears empty (only base URL): ${sitemapUrl} - Queuing for retry`);
+                return { success: true, sitemapUrl, isEmpty: true };
+              }
+
+              return { success: true, sitemapUrl, isEmpty: false };
             } catch (err) {
               console.error(`Error fetching sitemap ${sitemapUrl}:`, err.message);
-              return { success: false, sitemapUrl };
+              return { success: false, sitemapUrl, isEmpty: false };
             }
           })());
         }
 
         const batchResults = await Promise.all(batch);
-        for (const r of batchResults) if (!r.success) failedSitemaps++;
+        for (const r of batchResults) {
+          if (!r.success) {
+            failedSitemaps++;
+          } else if (r.isEmpty) {
+            emptySitemaps.push(r.sitemapUrl);
+          }
+        }
 
         // polite delay between batches
         if (i + SITEMAP_PARALLEL_REQUESTS < endIndex) await new Promise(resolve => setTimeout(resolve, SITEMAP_DELAY_MS));
+      }
+
+      // Retry empty sitemaps with slower rate (potential soft-blocking recovery)
+      if (emptySitemaps.length > 0) {
+        console.log(`\n${'='.repeat(70)}`);
+        console.log(`⚠️  Retrying ${emptySitemaps.length} empty sitemap(s) at slower rate...`);
+        console.log(`${'='.repeat(70)}\n`);
+        
+        const retryDelay = SITEMAP_DELAY_MS * 4; // 4x slower
+        let recoveredCount = 0;
+        
+        for (let i = 0; i < emptySitemaps.length; i += SITEMAP_RETRY_PARALLEL_REQUESTS) {
+          const retryBatch = [];
+          const retryBatchEnd = Math.min(i + SITEMAP_RETRY_PARALLEL_REQUESTS, emptySitemaps.length);
+          
+          for (let j = i; j < retryBatchEnd; j++) {
+            const sitemapUrl = emptySitemaps[j];
+            console.log(`[Retry ${j + 1}/${emptySitemaps.length}] Refetching: ${sitemapUrl}`);
+            
+            retryBatch.push((async () => {
+              try {
+                const sitemapResponse = await axios.get(sitemapUrl, { timeout: 15000 });
+                const sitemapResponseData = sitemapResponse.data;
+                const sitemapResult = await parser.parseStringPromise(sitemapResponseData);
+                
+                let urlCount = 0;
+                let hasOnlyBaseUrl = false;
+                
+                if (sitemapResult && sitemapResult.urlset && sitemapResult.urlset.url) {
+                  for (const entry of sitemapResult.urlset.url) {
+                    if (entry.loc && entry.loc[0]) {
+                      urlSet.add(entry.loc[0]);
+                      urlCount++;
+                      if (entry.loc[0] === 'https://www.unimart.com/' || entry.loc[0] === 'https://www.unimart.com') {
+                        hasOnlyBaseUrl = true;
+                      }
+                    }
+                  }
+                }
+                
+                if (urlCount > 1 || !hasOnlyBaseUrl) {
+                  console.log(`✅ Recovered ${urlCount} URLs from retry: ${sitemapUrl}`);
+                  
+                  // Update cached file with successful retry
+                  try {
+                    const filename = path.basename(new URL(sitemapUrl).pathname);
+                    const localPath = path.join(sitemapDir, filename);
+                    if (!fs.existsSync(sitemapDir)) fs.mkdirSync(sitemapDir, { recursive: true });
+                    fs.writeFileSync(localPath, sitemapResponseData, 'utf8');
+                  } catch (writeErr) {
+                    console.warn('Warning: could not update cached sitemap:', writeErr.message);
+                  }
+                  
+                  return { recovered: true };
+                } else {
+                  console.log(`⚠️  Still empty after retry: ${sitemapUrl}`);
+                  return { recovered: false };
+                }
+              } catch (err) {
+                console.error(`❌ Retry failed for ${sitemapUrl}:`, err.message);
+                return { recovered: false, error: true };
+              }
+            })());
+          }
+          
+          const retryResults = await Promise.all(retryBatch);
+          for (const r of retryResults) {
+            if (r.recovered) recoveredCount++;
+            if (r.error) failedSitemaps++;
+          }
+          
+          // Slower delay between retry batches
+          if (i + SITEMAP_RETRY_PARALLEL_REQUESTS < emptySitemaps.length) {
+            await new Promise(resolve => setTimeout(resolve, retryDelay));
+          }
+        }
+        
+        console.log(`\nRetry complete: ${recoveredCount}/${emptySitemaps.length} sitemaps recovered\n`);
       }
 
       // If we reached here and there were no failures, update sitemap_cache to reflect the successful fetch cycle
