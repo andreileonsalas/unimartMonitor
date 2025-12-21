@@ -324,79 +324,71 @@ async function fetchSitemap(db) {
         if (i + SITEMAP_PARALLEL_REQUESTS < endIndex) await new Promise(resolve => setTimeout(resolve, SITEMAP_DELAY_MS));
       }
 
-      // Retry empty sitemaps with slower rate (potential soft-blocking recovery)
+      // Retry empty sitemaps once (potential soft-blocking recovery)
       if (emptySitemaps.length > 0) {
         console.log(`\n${'='.repeat(70)}`);
-        console.log(`⚠️  Retrying ${emptySitemaps.length} empty sitemap(s) at slower rate...`);
+        console.log(`⚠️  Retrying ${emptySitemaps.length} empty sitemap(s) once...`);
         console.log(`${'='.repeat(70)}\n`);
         
-        const retryDelay = SITEMAP_DELAY_MS * 4; // 4x slower
         let recoveredCount = 0;
+        const retryBatch = [];
         
-        for (let i = 0; i < emptySitemaps.length; i += SITEMAP_RETRY_PARALLEL_REQUESTS) {
-          const retryBatch = [];
-          const retryBatchEnd = Math.min(i + SITEMAP_RETRY_PARALLEL_REQUESTS, emptySitemaps.length);
+        for (let i = 0; i < emptySitemaps.length; i++) {
+          const sitemapUrl = emptySitemaps[i];
+          console.log(`[Retry ${i + 1}/${emptySitemaps.length}] Refetching: ${sitemapUrl}`);
           
-          for (let j = i; j < retryBatchEnd; j++) {
-            const sitemapUrl = emptySitemaps[j];
-            console.log(`[Retry ${j + 1}/${emptySitemaps.length}] Refetching: ${sitemapUrl}`);
-            
-            retryBatch.push((async () => {
-              try {
-                const sitemapResponse = await axios.get(sitemapUrl, { timeout: 15000 });
-                const sitemapResponseData = sitemapResponse.data;
-                const sitemapResult = await parser.parseStringPromise(sitemapResponseData);
-                
-                let urlCount = 0;
-                let hasOnlyBaseUrl = false;
-                
-                if (sitemapResult && sitemapResult.urlset && sitemapResult.urlset.url) {
-                  for (const entry of sitemapResult.urlset.url) {
-                    if (entry.loc && entry.loc[0]) {
-                      urlSet.add(entry.loc[0]);
-                      urlCount++;
-                      if (entry.loc[0] === 'https://www.unimart.com/' || entry.loc[0] === 'https://www.unimart.com') {
-                        hasOnlyBaseUrl = true;
-                      }
+          retryBatch.push((async () => {
+            try {
+              await new Promise(resolve => setTimeout(resolve, SITEMAP_DELAY_MS * 2)); // Small delay before retry
+              
+              const sitemapResponse = await axios.get(sitemapUrl, { timeout: 15000 });
+              const sitemapResponseData = sitemapResponse.data;
+              const sitemapResult = await parser.parseStringPromise(sitemapResponseData);
+              
+              let urlCount = 0;
+              let hasOnlyBaseUrl = false;
+              
+              if (sitemapResult && sitemapResult.urlset && sitemapResult.urlset.url) {
+                for (const entry of sitemapResult.urlset.url) {
+                  if (entry.loc && entry.loc[0]) {
+                    urlSet.add(entry.loc[0]);
+                    urlCount++;
+                    if (entry.loc[0] === 'https://www.unimart.com/' || entry.loc[0] === 'https://www.unimart.com') {
+                      hasOnlyBaseUrl = true;
                     }
                   }
                 }
-                
-                if (urlCount > 1 || !hasOnlyBaseUrl) {
-                  console.log(`✅ Recovered ${urlCount} URLs from retry: ${sitemapUrl}`);
-                  
-                  // Update cached file with successful retry
-                  try {
-                    const filename = path.basename(new URL(sitemapUrl).pathname);
-                    const localPath = path.join(sitemapDir, filename);
-                    if (!fs.existsSync(sitemapDir)) fs.mkdirSync(sitemapDir, { recursive: true });
-                    fs.writeFileSync(localPath, sitemapResponseData, 'utf8');
-                  } catch (writeErr) {
-                    console.warn('Warning: could not update cached sitemap:', writeErr.message);
-                  }
-                  
-                  return { recovered: true };
-                } else {
-                  console.log(`⚠️  Still empty after retry: ${sitemapUrl}`);
-                  return { recovered: false };
-                }
-              } catch (err) {
-                console.error(`❌ Retry failed for ${sitemapUrl}:`, err.message);
-                return { recovered: false, error: true };
               }
-            })());
-          }
-          
-          const retryResults = await Promise.all(retryBatch);
-          for (const r of retryResults) {
-            if (r.recovered) recoveredCount++;
-            if (r.error) failedSitemaps++;
-          }
-          
-          // Slower delay between retry batches
-          if (i + SITEMAP_RETRY_PARALLEL_REQUESTS < emptySitemaps.length) {
-            await new Promise(resolve => setTimeout(resolve, retryDelay));
-          }
+              
+              if (urlCount > 1 || !hasOnlyBaseUrl) {
+                console.log(`✅ Recovered ${urlCount} URLs from retry: ${sitemapUrl}`);
+                
+                // Update cached file with successful retry
+                try {
+                  const filename = path.basename(new URL(sitemapUrl).pathname);
+                  const localPath = path.join(sitemapDir, filename);
+                  if (!fs.existsSync(sitemapDir)) fs.mkdirSync(sitemapDir, { recursive: true });
+                  fs.writeFileSync(localPath, sitemapResponseData, 'utf8');
+                } catch (writeErr) {
+                  console.warn('Warning: could not update cached sitemap:', writeErr.message);
+                }
+                
+                return { recovered: true };
+              } else {
+                console.log(`⚠️  Still empty after retry: ${sitemapUrl}`);
+                return { recovered: false };
+              }
+            } catch (err) {
+              console.error(`❌ Retry failed for ${sitemapUrl}:`, err.message);
+              return { recovered: false, error: true };
+            }
+          })());
+        }
+        
+        const retryResults = await Promise.all(retryBatch);
+        for (const r of retryResults) {
+          if (r.recovered) recoveredCount++;
+          if (r.error) failedSitemaps++;
         }
         
         console.log(`\nRetry complete: ${recoveredCount}/${emptySitemaps.length} sitemaps recovered\n`);
