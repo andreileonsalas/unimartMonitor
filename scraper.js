@@ -22,6 +22,11 @@ const SITEMAP_PARALLEL_REQUESTS = 15; // Número de requests paralelos para desc
 const SITEMAP_RETRY_PARALLEL_REQUESTS = 3; // Requests paralelos para reintentar sitemaps vacíos (más conservador para evitar soft-blocking)
 const MAX_SITEMAPS_PER_RUN = 0; // Maximum sitemaps to fetch per run (for incremental processing). Set to 0 to process all.
 
+// 🔄 MODO DE OPERACIÓN:
+// Usa --from-db como argumento para scrapear desde URLs en la base de datos en lugar de sitemaps
+// Ejemplo: node scraper.js --from-db
+const USE_DATABASE_MODE = process.argv.includes('--from-db');
+
 // Initialize database
 function initDatabase() {
   const db = new Database(DB_PATH);
@@ -455,6 +460,29 @@ async function fetchSitemap(db) {
 }
 
 // ============================================================================
+// DATABASE URL FETCHING
+// ============================================================================
+// Fetch URLs from the database instead of sitemaps
+// Used when --from-db flag is passed
+async function fetchUrlsFromDatabase(db) {
+  try {
+    console.log('Fetching URLs from database...');
+    
+    // Get all product URLs from database, sorted by oldest first
+    const getUrls = db.prepare('SELECT url FROM products ORDER BY last_scraped ASC');
+    const products = getUrls.all();
+    
+    const urls = products.map(p => p.url);
+    
+    console.log(`Found ${urls.length} product URLs in database`);
+    return urls;
+  } catch (error) {
+    console.error('Error fetching URLs from database:', error.message);
+    return [];
+  }
+}
+
+// ============================================================================
 // PRODUCT SCRAPING
 // ============================================================================
 // 🔧 Si Unimart cambia el HTML de las páginas de productos, revisa esta función
@@ -590,7 +618,17 @@ async function main() {
   const db = initDatabase();
   console.log('Database initialized');
   
-  const urls = await fetchSitemap(db);
+  // Choose mode: Database or Sitemap
+  let urls;
+  if (USE_DATABASE_MODE) {
+    console.log('🔄 MODE: Database URLs (skipping sitemap fetch)');
+    console.log('='.repeat(70));
+    urls = await fetchUrlsFromDatabase(db);
+  } else {
+    console.log('🗺️  MODE: Sitemap URLs');
+    console.log('='.repeat(70));
+    urls = await fetchSitemap(db);
+  }
   
   if (urls.length === 0) {
     console.log('No URLs found in this batch. Exiting.');
@@ -757,4 +795,4 @@ if (require.main === module) {
   });
 }
 
-module.exports = { initDatabase, fetchSitemap, scrapeProduct, saveProductPrice };
+module.exports = { initDatabase, fetchSitemap, fetchUrlsFromDatabase, scrapeProduct, saveProductPrice };

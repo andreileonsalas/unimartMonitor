@@ -26,13 +26,19 @@ jobs:
       - name: Install dependencies
         run: npm install
       
+      - name: Optimize database (pre-scrape)
+        run: node optimize_db.js
+      
       - name: Run scraper
         run: npm run scrape
+      
+      - name: Optimize database (post-scrape)
+        run: node optimize_db.js
       
       - name: Commit and push database
         run: |
           git config --local user.email "github-actions[bot]@users.noreply.github.com"
           git config --local user.name "github-actions[bot]"
-          git add prices.db
+          git add prices.db prices.db-shm prices.db-wal
           git diff --quiet && git diff --staged --quiet || git commit -m "Update prices database - $(date +'%Y-%m-%d')"
           git push
