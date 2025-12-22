@@ -24,8 +24,8 @@ const SITEMAP_RETRY_PARALLEL_REQUESTS = 3; // Requests paralelos para reintentar
 const MAX_SITEMAPS_PER_RUN = 0; // Maximum sitemaps to fetch per run (for incremental processing). Set to 0 to process all.
 
 // 🔄 MODO DE OPERACIÓN:
-// --mode=daily: Scrapea solo productos activos de la DB (rápido, diario)
-// --mode=weekly: Scrapea sitemap + 404s en una sola pasada (completo, semanal)
+// --mode=daily: Scrapea TODOS los productos activos de la DB (detecta y marca 404s automáticamente)
+// --mode=weekly: Scrapea sitemap + 404s en una sola pasada (descubre nuevos productos)
 // --from-db: (legacy) Scrapea desde URLs en la base de datos
 const SCRAPE_MODE = (() => {
   if (process.argv.includes('--mode=daily')) return 'daily';
@@ -33,8 +33,6 @@ const SCRAPE_MODE = (() => {
   if (process.argv.includes('--from-db')) return 'from-db';
   return 'weekly'; // default to weekly for backward compatibility
 })();
-
-const DAILY_LIMIT = 5000; // Límite de productos para modo daily
 
 // Initialize database
 function initDatabase() {
@@ -512,15 +510,14 @@ async function fetchUrlsFromDatabase(db, mode = 'from-db') {
     let products;
     
     if (mode === 'daily') {
-      // Daily mode: only active products, limited
+      // Daily mode: ALL active products (no limit - auto-cleans 404s)
       query = db.prepare(`
         SELECT url FROM products 
         WHERE status != '404' OR status IS NULL
         ORDER BY last_scraped ASC
-        LIMIT ?
       `);
-      products = query.all(DAILY_LIMIT);
-      console.log(`Found ${products.length} active product URLs (limit: ${DAILY_LIMIT})`);
+      products = query.all();
+      console.log(`Found ${products.length} active product URLs (no limit - scraping all)`);
     } else {
       // Legacy from-db mode: all products, oldest first
       query = db.prepare('SELECT url FROM products ORDER BY last_scraped ASC');
