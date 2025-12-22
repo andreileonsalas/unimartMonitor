@@ -89,6 +89,34 @@ function initDatabase() {
     );
   `);
   
+  // Auto-migration: Add new columns if they don't exist
+  try {
+    const tableInfo = db.pragma('table_info(products)');
+    const hasStatus = tableInfo.some(col => col.name === 'status');
+    const hasLastCheck = tableInfo.some(col => col.name === 'last_check');
+    
+    if (!hasStatus) {
+      console.log('🔄 Auto-migration: Adding status column to products table...');
+      db.exec('ALTER TABLE products ADD COLUMN status TEXT DEFAULT \'active\'');
+      
+      // Mark existing 404s
+      db.exec(`
+        UPDATE products
+        SET status = '404'
+        WHERE url IN (SELECT url FROM scraping_failures WHERE status_code = 404)
+      `);
+      console.log('✅ Status column added and migrated');
+    }
+    
+    if (!hasLastCheck) {
+      console.log('🔄 Auto-migration: Adding last_check column to products table...');
+      db.exec('ALTER TABLE products ADD COLUMN last_check DATETIME');
+      console.log('✅ Last_check column added');
+    }
+  } catch (error) {
+    console.warn('Warning: Auto-migration failed (might be okay if columns already exist):', error.message);
+  }
+  
   return db;
 }
 
