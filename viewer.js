@@ -188,7 +188,7 @@ function displayProducts(products, append = false) {
                     <div class="current-price">${product.currency} ${typeof product.currentPrice === 'number' ? product.currentPrice.toFixed(2) : 'N/A'}${lowestPriceBadge}</div>
                     ${priceChange}
                 </div>
-                <div class="product-url"><a href="${escapeHtml(product.url)}" target="_blank" rel="noopener noreferrer" onclick="event.stopPropagation()" style="color: #667eea; text-decoration: none;">🔗 Ver en Unimart</a></div>
+                <div class="product-url"><a href="${escapeHtml(product.url)}" target="_blank" rel="noopener noreferrer" onclick="event.stopPropagation()" style="color: #667eea; text-decoration: none;">🔗 Ver en Unimart ${escapeHtml(product.url)}</a></div>
                 <div id="chart-${product.id}" class="chart-container price-history"></div>
             </div>
         `;
