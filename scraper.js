@@ -1,3 +1,4 @@
+/* eslint-disable no-unused-vars */
 const axios = require('axios');
 const cheerio = require('cheerio');
 const xml2js = require('xml2js');
@@ -23,9 +24,17 @@ const SITEMAP_RETRY_PARALLEL_REQUESTS = 3; // Requests paralelos para reintentar
 const MAX_SITEMAPS_PER_RUN = 0; // Maximum sitemaps to fetch per run (for incremental processing). Set to 0 to process all.
 
 // 🔄 MODO DE OPERACIÓN:
-// Usa --from-db como argumento para scrapear desde URLs en la base de datos en lugar de sitemaps
-// Ejemplo: node scraper.js --from-db
-const USE_DATABASE_MODE = process.argv.includes('--from-db');
+// --mode=daily: Scrapea solo productos activos de la DB (rápido, diario)
+// --mode=weekly: Scrapea sitemap + 404s en una sola pasada (completo, semanal)
+// --from-db: (legacy) Scrapea desde URLs en la base de datos
+const SCRAPE_MODE = (() => {
+  if (process.argv.includes('--mode=daily')) return 'daily';
+  if (process.argv.includes('--mode=weekly')) return 'weekly';
+  if (process.argv.includes('--from-db')) return 'from-db';
+  return 'weekly'; // default to weekly for backward compatibility
+})();
+
+const DAILY_LIMIT = 5000; // Límite de productos para modo daily
 
 // Initialize database
 function initDatabase() {
@@ -37,7 +46,9 @@ function initDatabase() {
       url TEXT UNIQUE NOT NULL,
       sku TEXT,
       title TEXT,
-      last_scraped DATETIME
+      last_scraped DATETIME,
+      status TEXT DEFAULT 'active',
+      last_check DATETIME
     );
 
     CREATE TABLE IF NOT EXISTS prices (
@@ -462,22 +473,67 @@ async function fetchSitemap(db) {
 // ============================================================================
 // DATABASE URL FETCHING
 // ============================================================================
-// Fetch URLs from the database instead of sitemaps
-// Used when --from-db flag is passed
-async function fetchUrlsFromDatabase(db) {
+// Fetch URLs from the database based on mode
+// - daily: Only active products (not 404s), limited to DAILY_LIMIT
+// - from-db: All products, sorted by oldest scraped first (legacy mode)
+async function fetchUrlsFromDatabase(db, mode = 'from-db') {
   try {
-    console.log('Fetching URLs from database...');
+    console.log(`Fetching URLs from database (mode: ${mode})...`);
     
-    // Get all product URLs from database, sorted by oldest first
-    const getUrls = db.prepare('SELECT url FROM products ORDER BY last_scraped ASC');
-    const products = getUrls.all();
+    let query;
+    let products;
+    
+    if (mode === 'daily') {
+      // Daily mode: only active products, limited
+      query = db.prepare(`
+        SELECT url FROM products 
+        WHERE status != '404' OR status IS NULL
+        ORDER BY last_scraped ASC
+        LIMIT ?
+      `);
+      products = query.all(DAILY_LIMIT);
+      console.log(`Found ${products.length} active product URLs (limit: ${DAILY_LIMIT})`);
+    } else {
+      // Legacy from-db mode: all products, oldest first
+      query = db.prepare('SELECT url FROM products ORDER BY last_scraped ASC');
+      products = query.all();
+      console.log(`Found ${products.length} product URLs in database`);
+    }
     
     const urls = products.map(p => p.url);
-    
-    console.log(`Found ${urls.length} product URLs in database`);
     return urls;
   } catch (error) {
     console.error('Error fetching URLs from database:', error.message);
+    return [];
+  }
+}
+
+// Fetch 404 URLs to retry (for weekly mode)
+async function fetch404Urls(db) {
+  try {
+    console.log('Fetching 404 URLs to retry...');
+    
+    // Get URLs marked as 404 from products table
+    const productQuery = db.prepare(`
+      SELECT url FROM products WHERE status = '404'
+    `);
+    const productUrls = productQuery.all().map(p => p.url);
+    
+    // Get URLs with 404 status from failures table
+    const failureQuery = db.prepare(`
+      SELECT url FROM scraping_failures WHERE status_code = 404
+    `);
+    const failureUrls = failureQuery.all().map(f => f.url);
+    
+    // Merge and deduplicate
+    const allUrls = new Set([...productUrls, ...failureUrls]);
+    console.log(`Found ${allUrls.size} total 404 URLs to retry`);
+    console.log(`  - From products table: ${productUrls.length}`);
+    console.log(`  - From failures table: ${failureUrls.length}`);
+    
+    return Array.from(allUrls);
+  } catch (error) {
+    console.error('Error fetching 404 URLs:', error.message);
     return [];
   }
 }
@@ -578,14 +634,16 @@ function saveProductPrice(db, productData) {
   }
   
   try {
-    // Insert or update product (URL is unique, but we also save/update SKU)
+    // Insert or update product (URL is unique, but we also save/update SKU and status)
     const insertProduct = db.prepare(`
-      INSERT INTO products (url, sku, title, last_scraped)
-      VALUES (?, ?, ?, datetime('now'))
+      INSERT INTO products (url, sku, title, last_scraped, last_check, status)
+      VALUES (?, ?, ?, datetime('now'), datetime('now'), 'active')
       ON CONFLICT(url) DO UPDATE SET
         sku = excluded.sku,
         title = excluded.title,
-        last_scraped = excluded.last_scraped
+        last_scraped = excluded.last_scraped,
+        last_check = excluded.last_check,
+        status = 'active'
     `);
     
     insertProduct.run(productData.url, productData.sku, productData.title);
@@ -614,20 +672,54 @@ function saveProductPrice(db, productData) {
 async function main() {
   console.log('Starting Unimart price scraper...');
   console.log('='.repeat(70));
+  console.log(`🔄 MODE: ${SCRAPE_MODE}`);
+  console.log('='.repeat(70));
   
   const db = initDatabase();
   console.log('Database initialized');
   
-  // Choose mode: Database or Sitemap
-  let urls;
-  if (USE_DATABASE_MODE) {
-    console.log('🔄 MODE: Database URLs (skipping sitemap fetch)');
+  // Choose URLs based on mode
+  let urls = [];
+  let sitemapCount = 0;
+  let notFoundCount = 0;
+  
+  if (SCRAPE_MODE === 'daily') {
+    // Daily mode: only active products from database
+    console.log('📅 Daily mode: Scraping active products only');
     console.log('='.repeat(70));
-    urls = await fetchUrlsFromDatabase(db);
+    urls = await fetchUrlsFromDatabase(db, 'daily');
+    
+  } else if (SCRAPE_MODE === 'weekly') {
+    // Weekly mode: sitemap + 404s merged
+    console.log('📆 Weekly mode: Sitemap + 404 recovery');
+    console.log('='.repeat(70));
+    
+    // 1. Fetch sitemap
+    const sitemapUrls = await fetchSitemap(db);
+    sitemapCount = sitemapUrls.length;
+    
+    // 2. Fetch 404s
+    const notFoundUrls = await fetch404Urls(db);
+    notFoundCount = notFoundUrls.length;
+    
+    // 3. Merge with Set (automatic deduplication)
+    const urlSet = new Set([...sitemapUrls, ...notFoundUrls]);
+    urls = Array.from(urlSet);
+    
+    console.log('\n' + '='.repeat(70));
+    console.log('📊 WEEKLY MERGE SUMMARY');
+    console.log('='.repeat(70));
+    console.log(`URLs from sitemap: ${sitemapCount}`);
+    console.log(`URLs from 404s: ${notFoundCount}`);
+    console.log(`Total unique URLs after merge: ${urls.length}`);
+    console.log(`Duplicates removed: ${(sitemapCount + notFoundCount) - urls.length}`);
+    console.log('='.repeat(70) + '\n');
+    
   } else {
-    console.log('🗺️  MODE: Sitemap URLs');
+    // Legacy from-db mode
+    console.log('🔄 Legacy mode: Database URLs (skipping sitemap fetch)');
     console.log('='.repeat(70));
-    urls = await fetchSitemap(db);
+    urls = await fetchUrlsFromDatabase(db, 'from-db');
   }
   
   if (urls.length === 0) {
@@ -708,6 +800,16 @@ async function main() {
                 attempts = scraping_failures.attempts + 1
             `);
             upsert.run(productData.url, productData.status, productData.message);
+            
+            // If 404, also update product status
+            if (productData.status === 404) {
+              const updateStatus = db.prepare(`
+                UPDATE products 
+                SET status = '404', last_check = datetime('now')
+                WHERE url = ?
+              `);
+              updateStatus.run(productData.url);
+            }
           } catch (e) {
             console.error('Error recording failure:', e.message);
           }

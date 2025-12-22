@@ -1,0 +1,44 @@
+name: Daily Price Update
+
+on:
+  schedule:
+    # Run daily at 2 AM UTC (Monday-Saturday)
+    - cron: '0 2 * * 1-6'
+  workflow_dispatch: # Allow manual trigger
+
+jobs:
+  daily-scrape:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write  # Required to commit and push database changes
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      
+      - name: Install dependencies
+        run: npm install
+      
+      - name: Optimize database (pre-scrape)
+        run: node optimize_db.js
+      
+      - name: Run daily scraper (active products only)
+        run: node scraper.js --mode=daily
+      
+      - name: Optimize database (post-scrape)
+        run: node optimize_db.js
+      
+      - name: Commit and push database
+        run: |
+          git config --local user.email "github-actions[bot]@users.noreply.github.com"
+          git config --local user.name "github-actions[bot]"
+          git add prices.db
+          git diff --quiet && git diff --staged --quiet || git commit -m "Daily price update - $(date +'%Y-%m-%d')"
+          git push

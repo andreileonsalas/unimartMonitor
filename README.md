@@ -223,16 +223,46 @@ This will:
 
 ## 🤖 Automated Daily Tracking
 
-The GitHub Actions workflow (`.github/workflows/scrape.yml`) runs automatically every day at 2 AM UTC. It will:
+Este proyecto usa **dos workflows automatizados** para optimizar el uso de minutos de GitHub Actions:
 
-1. Install dependencies
-2. Run the scraper
-3. Commit the updated database
-4. Push changes to the repository
+### 📅 Daily Scraper (Lunes-Sábado, 2 AM UTC)
+**Archivo:** `.github/workflows/daily-scraper.yml`
 
-**Trigger manual:** Puedes ejecutarlo manualmente desde GitHub:
+Actualiza precios de productos activos:
+- Scrapea solo productos con `status = 'active'` (no 404s)
+- Límite: 5,000 productos/día
+- **Modo:** `--mode=daily`
+- **Objetivo:** Actualizar precios de productos conocidos
+- **Tiempo estimado:** ~15 min/día
+
+### 📆 Weekly Discovery (Domingos, 3 AM UTC)
+**Archivo:** `.github/workflows/weekly-discovery.yml`
+
+Descubre productos nuevos y recupera 404s:
+- Descarga sitemaps completos (~76,000 URLs)
+- Agrega URLs marcadas como 404 a la lista
+- Merge automático con Set (deduplica URLs repetidas)
+- **Modo:** `--mode=weekly`
+- **Objetivo:** Descubrir nuevos productos + recuperar 404s que volvieron
+- **Tiempo estimado:** ~50 min/semana
+
+**📊 Log especial del merge:**
+```
+URLs from sitemap: 76809
+URLs from 404s: 2401
+Total unique URLs after merge: 79210
+Duplicates removed: 0
+```
+
+### Ventajas de esta arquitectura:
+- ✅ **Eficiencia:** Solo ~650 min/mes (32% del límite de 2000 min gratis)
+- ✅ **Una sola recorrida semanal:** Sitemap + 404s se procesan juntos
+- ✅ **Recuperación automática:** Si un producto vuelve del 404, se detecta
+- ✅ **Actualización diaria:** Precios actualizados sin recorrer todo el sitemap
+
+**Trigger manual:** Puedes ejecutar cualquier workflow manualmente desde GitHub:
 - Ve a "Actions" tab en GitHub
-- Selecciona "Daily Price Scraper"
+- Selecciona "Daily Price Update" o "Weekly Discovery & Recovery"
 - Clic en "Run workflow"
 
 ---
@@ -259,29 +289,48 @@ npm install
 
 ### Running the Scraper Locally
 
-To run the scraper manually:
+Puedes ejecutar el scraper en diferentes modos:
+
+**Modo Weekly (sitemap + 404s):**
+```bash
+node scraper.js --mode=weekly
+```
+- Descarga todos los sitemaps
+- Agrega URLs marcadas como 404
+- Scrapea todo en una sola pasada
+- **Uso:** Para descubrimiento completo
+
+**Modo Daily (solo activos):**
+```bash
+node scraper.js --mode=daily
+```
+- Solo productos con `status='active'`
+- Límite de 5,000 productos
+- **Uso:** Actualización rápida de precios
+
+**Modo Legacy (base de datos):**
+```bash
+node scraper.js --from-db
+```
+- Scrapea desde URLs en la DB (modo antiguo)
+- Sin límite, ordena por `last_scraped`
+
+### Database Migration
+
+Si ya tienes una base de datos existente, ejecuta el script de migración:
 
 ```bash
-npm run scrape
+node migrate_db.js
 ```
 
-This will:
-- Fetch the sitemap from unimart.com
-- Extract product URLs
-- Scrape prices from up to 50 products
-- Save data to `prices.db`
+Esto agregará las nuevas columnas:
+- `status` (TEXT): 'active' o '404'
+- `last_check` (DATETIME): Última verificación
 
-The GitHub Actions workflow (`.github/workflows/scrape.yml`) runs automatically every day at 2 AM UTC. It will:
-
-1. Install dependencies
-2. Run the scraper
-3. Commit the updated database
-4. Push changes to the repository
-
-You can also trigger it manually:
-- Go to "Actions" tab in GitHub
-- Select "Daily Price Scraper"
-- Click "Run workflow"
+El script automáticamente:
+- Detecta si la migración ya se hizo
+- Marca productos con 404 basándose en `scraping_failures`
+- Muestra estadísticas antes y después
 
 ## Database Schema
 
@@ -291,6 +340,8 @@ You can also trigger it manually:
 - `sku`: Product SKU from Unimart (indexed for fast search)
 - `title`: Product title
 - `last_scraped`: Last scrape timestamp
+- `status`: Product status ('active' or '404') - **NEW**
+- `last_check`: Last check timestamp - **NEW**
 
 **Note:** Both URL and SKU are stored to maintain dual reference. If Unimart changes the URL or SKU, historical data is preserved. The URL column has a UNIQUE constraint to prevent duplicate entries.
 
