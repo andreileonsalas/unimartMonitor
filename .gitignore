@@ -138,5 +138,10 @@ dist
 vite.config.js.timestamp-*
 vite.config.ts.timestamp-*
 
-# Include SQLite database (needed for GitHub Pages viewer)
-!prices.db
+# Ignorar DB sin comprimir (demasiado grande)
+prices.db
+prices.db-shm
+prices.db-wal
+
+# Incluir DB comprimida para GitHub Pages (66% más pequeña)
+!prices.db.gz

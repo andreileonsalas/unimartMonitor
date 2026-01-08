@@ -37,19 +37,19 @@ console.log('='.repeat(70));
 
 const newIndices = [
   // Composite index for common price queries (by product and date)
-  `CREATE INDEX IF NOT EXISTS idx_prices_product_date ON prices(product_id, scraped_at DESC)`,
+  'CREATE INDEX IF NOT EXISTS idx_prices_product_date ON prices(product_id, scraped_at DESC)',
   
   // Index for failure lookups
-  `CREATE INDEX IF NOT EXISTS idx_failures_url ON scraping_failures(url)`,
-  `CREATE INDEX IF NOT EXISTS idx_failures_status ON scraping_failures(status_code)`,
-  `CREATE INDEX IF NOT EXISTS idx_failures_attempts ON scraping_failures(attempts)`,
+  'CREATE INDEX IF NOT EXISTS idx_failures_url ON scraping_failures(url)',
+  'CREATE INDEX IF NOT EXISTS idx_failures_status ON scraping_failures(status_code)',
+  'CREATE INDEX IF NOT EXISTS idx_failures_attempts ON scraping_failures(attempts)',
   
   // Index for products by last_scraped (useful for --from-db mode)
-  `CREATE INDEX IF NOT EXISTS idx_products_last_scraped ON products(last_scraped ASC)`,
+  'CREATE INDEX IF NOT EXISTS idx_products_last_scraped ON products(last_scraped ASC)',
   
   // Partial index for active products (not in failures with 404)
   // This helps exclude deleted products efficiently
-  `CREATE INDEX IF NOT EXISTS idx_products_title ON products(title) WHERE title IS NOT NULL`,
+  'CREATE INDEX IF NOT EXISTS idx_products_title ON products(title) WHERE title IS NOT NULL',
 ];
 
 newIndices.forEach(sql => {

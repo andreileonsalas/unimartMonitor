@@ -26,19 +26,31 @@ jobs:
       - name: Install dependencies
         run: npm install
       
+      - name: Decompress database
+        run: |
+          if [ -f prices.db.gz ]; then
+            gunzip -k prices.db.gz
+            echo "✓ Database decompressed"
+          else
+            echo "⚠ No compressed database found, starting fresh"
+          fi
+      
       - name: Optimize database (pre-scrape)
         run: node optimize_db.js
       
-      - name: Run daily scraper (active products only)
+      - name: Run scraper (daily mode - existing products only)
         run: node scraper.js --mode=daily
       
       - name: Optimize database (post-scrape)
         run: node optimize_db.js
       
-      - name: Commit and push database
+      - name: Compress database
+        run: node compress_db.js
+      
+      - name: Commit and push compressed database
         run: |
           git config --local user.email "github-actions[bot]@users.noreply.github.com"
           git config --local user.name "github-actions[bot]"
-          git add prices.db
+          git add prices.db.gz
           git diff --quiet && git diff --staged --quiet || git commit -m "Daily price update - $(date +'%Y-%m-%d')"
           git push

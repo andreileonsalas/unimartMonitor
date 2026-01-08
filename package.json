@@ -5,6 +5,13 @@
   "main": "scraper.js",
   "scripts": {
     "scrape": "node scraper.js",
+    "scrape:daily": "node scraper.js --mode=daily",
+    "scrape:weekly": "node scraper.js --mode=weekly",
+    "daily": "node -e \"const fs=require('fs'),zlib=require('zlib'); if(fs.existsSync('prices.db.gz')){fs.writeFileSync('prices.db',zlib.gunzipSync(fs.readFileSync('prices.db.gz')))}\" && node optimize_db.js && node scraper.js --mode=daily && node optimize_db.js && node compress_db.js",
+    "weekly": "node -e \"const fs=require('fs'),zlib=require('zlib'); if(fs.existsSync('prices.db.gz')){fs.writeFileSync('prices.db',zlib.gunzipSync(fs.readFileSync('prices.db.gz')))}\" && node optimize_db.js && node scraper.js --mode=weekly && node optimize_db.js && node compress_db.js",
+    "compress": "node compress_db.js",
+    "optimize": "node optimize_db.js",
+    "compact": "node compact_db.js",
     "test": "node test.js",
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
