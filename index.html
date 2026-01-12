@@ -3,7 +3,38 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
     <title>Unimart Price Tracker - Monitor de Precios</title>
+    
+    <!-- SEO Meta Tags -->
+    <meta name="description" content="Monitor de precios en tiempo real para productos de Unimart. Rastrea cambios de precios, encuentra las mejores ofertas y ahorra dinero.">
+    <meta name="keywords" content="unimart, precios, monitor, ofertas, ahorro, comparador">
+    <meta name="author" content="Unimart Price Tracker">
+    <meta name="robots" content="index, follow">
+    
+    <!-- Open Graph / Facebook -->
+    <meta property="og:type" content="website">
+    <meta property="og:url" content="https://andreileonsalas.github.io/unimartMonitor/">
+    <meta property="og:title" content="Unimart Price Tracker - Monitor de Precios">
+    <meta property="og:description" content="Monitor de precios en tiempo real para productos de Unimart">
+    
+    <!-- Twitter -->
+    <meta property="twitter:card" content="summary_large_image">
+    <meta property="twitter:title" content="Unimart Price Tracker">
+    <meta property="twitter:description" content="Monitor de precios en tiempo real para productos de Unimart">
+    
+    <!-- Structured Data for Google -->
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "WebApplication",
+      "name": "Unimart Price Tracker",
+      "description": "Monitor de precios en tiempo real para productos de Unimart",
+      "url": "https://andreileonsalas.github.io/unimartMonitor/",
+      "applicationCategory": "Shopping",
+      "operatingSystem": "Any"
+    }
+    </script>
     
     <!-- Bootstrap 5 CSS -->
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet" 
@@ -331,12 +362,31 @@
     </style>
 </head>
 <body>
+    <!-- Noscript fallback for SEO and accessibility -->
+    <noscript>
+        <div class="container mt-5">
+            <div class="alert alert-warning" role="alert">
+                <h4>JavaScript Requerido</h4>
+                <p>Esta aplicación requiere JavaScript habilitado para funcionar. Por favor, habilita JavaScript en tu navegador para ver el monitor de precios de Unimart.</p>
+            </div>
+            <div class="main-header">
+                <h1><i class="bi bi-shop"></i> Unimart Price Tracker</h1>
+                <p class="subtitle">Monitor de precios para productos de unimart.com</p>
+                <p>Rastrea cambios de precios en tiempo real, encuentra las mejores ofertas y ahorra dinero comprando en Unimart.</p>
+            </div>
+        </div>
+    </noscript>
+    
     <div class="container">
         <!-- Header -->
-        <div class="main-header">
+        <header class="main-header">
             <h1><i class="bi bi-shop"></i> Unimart Price Tracker</h1>
             <p class="subtitle">Monitor de precios para productos de unimart.com</p>
-        </div>
+            <p style="margin-top: 1rem; color: #495057;">
+                Rastrea más de <strong>1000+ productos</strong> de Unimart en tiempo real. 
+                Encuentra las mejores ofertas y ahorra dinero comparando precios históricos.
+            </p>
+        </header>
 
         <!-- Loading State -->
         <div id="loading" class="loading-container">

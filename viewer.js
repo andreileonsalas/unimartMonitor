@@ -17,9 +17,18 @@ async function loadDatabase() {
       showError('Worker error: ' + error.message);
     };
 		
+    // Timeout de seguridad (30 segundos para fetch)
+    const fetchTimeout = new Promise((_, reject) => 
+      setTimeout(() => reject(new Error('Timeout: La descarga tardó demasiado')), 30000)
+    );
+		
     // Descargar y descomprimir la DB
     console.log('[viewer2] Fetching prices.db.gz...');
-    const response = await fetch('prices.db.gz');
+    const response = await Promise.race([
+      fetch('prices.db.gz'),
+      fetchTimeout
+    ]);
+    
     if (!response.ok) throw new Error('Database file not found.');
 		
     const compressed = await response.arrayBuffer();
@@ -30,12 +39,21 @@ async function loadDatabase() {
     const decompressed = pako.ungzip(new Uint8Array(compressed));
     console.log('[viewer2] ✓ Descompresión:', ((Date.now() - startDecompress)/1000).toFixed(1), 's');
 		
+    // Verificar que la descompresión fue exitosa
+    if (!decompressed || !decompressed.buffer) {
+      throw new Error('Descompresión falló - buffer no disponible');
+    }
+		
     // Enviar DB al worker (en segundo plano!)
     console.log('[viewer2] Enviando DB al worker...');
+    
+    // Crear una copia del buffer para transferir de forma segura
+    const bufferCopy = decompressed.buffer.slice(0);
+    
     worker.postMessage({ 
       type: 'INIT_DB', 
-      data: { buffer: decompressed.buffer }
-    }, [decompressed.buffer]); // Transferir ownership para mejor performance
+      data: { buffer: bufferCopy }
+    }, [bufferCopy]); // Transferir ownership para mejor performance
 		
   } catch (error) {
     showError('Error loading database: ' + error.message);
@@ -221,9 +239,22 @@ function handleSearch(event) {
 
 function showError(message) {
   console.error('[viewer2]', message);
-  document.getElementById('loading').style.display = 'none';
-  document.getElementById('error').classList.remove('d-none');
-  document.getElementById('error').textContent = message;
+  const loadingEl = document.getElementById('loading');
+  const errorEl = document.getElementById('error');
+  
+  if (loadingEl) loadingEl.style.display = 'none';
+  if (errorEl) {
+    errorEl.classList.remove('d-none');
+    errorEl.style.display = 'block';
+    
+    // Actualizar el mensaje de error
+    const errorMessageEl = document.getElementById('errorMessage');
+    if (errorMessageEl) {
+      errorMessageEl.textContent = message;
+    } else {
+      errorEl.innerHTML = `<i class="bi bi-exclamation-triangle-fill me-2"></i>${escapeHtml(message)}`;
+    }
+  }
 }
 
 function escapeHtml(text) {

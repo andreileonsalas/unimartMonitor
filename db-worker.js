@@ -10,6 +10,11 @@ self.onmessage = async function(e) {
   try {
     switch(type) {
     case 'INIT_DB':
+      // Validar que tengamos el buffer
+      if (!data || !data.buffer) {
+        throw new Error('No se recibió el buffer de la base de datos');
+      }
+      
       // Inicializar SQL.js
       importScripts('https://cdnjs.cloudflare.com/ajax/libs/sql.js/1.8.0/sql-wasm.js');
       const SQL = await initSqlJs({

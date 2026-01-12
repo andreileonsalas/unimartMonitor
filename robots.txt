@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://andreileonsalas.github.io/unimartMonitor/sitemap.xml
