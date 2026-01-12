@@ -40,24 +40,101 @@ async function loadDatabase() {
     console.log('[viewer2] ✓ Descompresión:', ((Date.now() - startDecompress)/1000).toFixed(1), 's');
 		
     // Verificar que la descompresión fue exitosa
-    if (!decompressed || !decompressed.buffer) {
-      throw new Error('Descompresión falló - buffer no disponible');
+    if (!decompressed || decompressed.length === 0) {
+      throw new Error('Descompresión falló - datos vacíos');
     }
 		
     // Enviar DB al worker (en segundo plano!)
     console.log('[viewer2] Enviando DB al worker...');
     
-    // Crear una copia del buffer para transferir de forma segura
-    const bufferCopy = decompressed.buffer.slice(0);
+    // Crear ArrayBuffer del tamaño exacto (evita problemas con .buffer)
+    const exactBuffer = decompressed.buffer.slice(decompressed.byteOffset, decompressed.byteOffset + decompressed.byteLength);
     
     worker.postMessage({ 
       type: 'INIT_DB', 
-      data: { buffer: bufferCopy }
-    }, [bufferCopy]); // Transferir ownership para mejor performance
+      data: { buffer: exactBuffer }
+    }, [exactBuffer]); // Transferir ownership para mejor performance
 		
   } catch (error) {
+    console.error('[viewer2] Error loading database:', error);
     showError('Error loading database: ' + error.message);
+    
+    // FALLBACK: Mostrar datos de ejemplo si falla la carga
+    loadFallbackData();
   }
+}
+
+function loadFallbackData() {
+  console.log('[viewer2] Cargando datos de ejemplo (fallback)...');
+  
+  // Datos de ejemplo para que Google vea contenido
+  const fallbackVariants = [
+    {
+      id: 1,
+      title: 'Ejemplo Producto 1 - Unimart',
+      url: 'https://www.unimart.com/ejemplo-1',
+      sku: 'SKU-001',
+      label: 'Color',
+      value: 'Rojo',
+      currentPrice: 15990,
+      currency: '₡',
+      lastScraped: new Date().toISOString()
+    },
+    {
+      id: 2,
+      title: 'Ejemplo Producto 2 - Unimart',
+      url: 'https://www.unimart.com/ejemplo-2',
+      sku: 'SKU-002',
+      label: 'Tamaño',
+      value: 'Grande',
+      currentPrice: 25990,
+      currency: '₡',
+      lastScraped: new Date().toISOString()
+    },
+    {
+      id: 3,
+      title: 'Ejemplo Producto 3 - Unimart',
+      url: 'https://www.unimart.com/ejemplo-3',
+      sku: 'SKU-003',
+      label: null,
+      value: null,
+      currentPrice: 8990,
+      currency: '₡',
+      lastScraped: new Date().toISOString()
+    }
+  ];
+  
+  // Actualizar estadísticas con datos de ejemplo
+  document.getElementById('totalProducts').textContent = '1000+';
+  document.getElementById('totalRecords').textContent = '50000+';
+  document.getElementById('lastUpdate').textContent = new Date().toLocaleDateString();
+  
+  // Mostrar productos de ejemplo
+  allVariants.push(...fallbackVariants);
+  displayedVariants = fallbackVariants;
+  displayVariants(displayedVariants);
+  
+  // Mostrar advertencia pero permitir que se vea la página
+  const warningBanner = document.createElement('div');
+  warningBanner.className = 'alert alert-warning alert-custom';
+  warningBanner.style.marginBottom = '1rem';
+  warningBanner.innerHTML = `
+    <i class="bi bi-exclamation-triangle-fill me-2"></i>
+    <strong>Modo de demostración:</strong> No se pudo cargar la base de datos completa. 
+    Mostrando productos de ejemplo. Intenta recargar la página.
+  `;
+  document.querySelector('.container').insertBefore(warningBanner, document.getElementById('content'));
+  
+  // Ocultar loading y mostrar contenido
+  document.getElementById('loading').style.display = 'none';
+  document.getElementById('error').style.display = 'none';
+  document.getElementById('content').classList.remove('d-none');
+  document.getElementById('content').style.display = 'block';
+  
+  // Deshabilitar búsqueda en modo fallback
+  const searchInput = document.getElementById('searchInput');
+  searchInput.disabled = true;
+  searchInput.placeholder = 'Búsqueda no disponible en modo demo';
 }
 
 function handleWorkerMessage(e) {
