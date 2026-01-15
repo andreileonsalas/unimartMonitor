@@ -80,6 +80,7 @@ function initDatabase() {
 			sku TEXT,
 			variant_label TEXT,
 			variant_value TEXT,
+			shopify_gid TEXT,
 			FOREIGN KEY (product_id) REFERENCES products(id)
 		);
 		CREATE TABLE IF NOT EXISTS prices (
@@ -97,8 +98,12 @@ function initDatabase() {
 		CREATE INDEX IF NOT EXISTS idx_prices_variant_id ON prices(variant_id);
 	`);
   
-  // Agregar columnas status y last_check si no existen (para bases de datos migradas)
-  try {
+  // Agregar columnas status y last_check si no existen (para bases de datos migradas)	// Agregar columna shopify_gid si no existe
+	try {
+		db.exec('ALTER TABLE variants ADD COLUMN shopify_gid TEXT');
+	} catch (e) {
+		// Columna ya existe, ignorar error
+	}  try {
     db.exec('ALTER TABLE products ADD COLUMN status TEXT DEFAULT \'active\'');
   } catch {
     // Columna ya existe
@@ -110,6 +115,59 @@ function initDatabase() {
   }
   
   return db;
+}
+
+// 🚀 OPTIMIZACIÓN: Extraer TODAS las variantes de una sola llamada HTTP
+function extractVariantsFromHTML(html) {
+  const optionsStart = html.indexOf('"options":');
+  if (optionsStart === -1) return [];
+
+  const arrayStart = html.indexOf('[', optionsStart);
+  if (arrayStart === -1) return [];
+
+  let depth = 0, arrayEnd = -1;
+  for (let i = arrayStart; i < html.length; i++) {
+    if (html[i] === '[' || html[i] === '{') depth++;
+    if (html[i] === ']' || html[i] === '}') {
+      depth--;
+      if (html[i] === ']' && depth === 0) {
+        arrayEnd = i;
+        break;
+      }
+    }
+  }
+
+  if (arrayEnd === -1) return [];
+
+  try {
+    const options = JSON.parse(html.substring(arrayStart, arrayEnd + 1));
+    const variants = [];
+
+    options.forEach(option => {
+      if (option.optionValues) {
+        option.optionValues.forEach(value => {
+          if (value.firstSelectableVariant) {
+            const v = value.firstSelectableVariant;
+            variants.push({
+              name: value.name,
+              sku: v.sku,
+              price: v.price ? parseFloat(v.price.amount) : null,
+              comparePrice: v.compareAtPrice ? parseFloat(v.compareAtPrice.amount) : null,
+              available: v.availableForSale,
+              stock: v.quantityAvailable,
+              gid: v.id, // ✨ CAPTURAR GID DE SHOPIFY
+              label: option.name // Color, Talla, etc.
+            });
+          }
+        });
+      }
+    });
+
+    return variants;
+  } catch (e) {
+    console.error("Error parseando options:", e.message);
+    return [];
+  }
 }
 
 async function fetchProductSitemaps() {
@@ -143,7 +201,6 @@ async function fetchSitemapUrls(sitemapUrl) {
     return [];
   }
 }
-
 
 // Extraer SKU del HTML de una página específica
 async function extractSKUFromHTML(pageUrl) {
@@ -227,26 +284,47 @@ async function extractSKUFromHTML(pageUrl) {
   }
 }
 
+// 🚀 OPTIMIZADO: Detecta variantes usando extracción de UNA sola llamada
 async function detectVariants(url) {
   try {
     const res = await axios.get(url, { timeout: 20000, headers: { 'User-Agent': 'Mozilla/5.0' } });
     const $ = cheerio.load(res.data);
+    const html = res.data;
 		
+    // 🚀 NUEVA OPTIMIZACIÓN: Extraer variantes del JSON embebido
+    const embeddedVariants = extractVariantsFromHTML(html);
+    if (embeddedVariants.length > 0) {
+      console.log(`  🚀 Extraídas ${embeddedVariants.length} variantes de datos embebidos`);
+      return { 
+        label: embeddedVariants[0].label || 'Color',
+        variants: embeddedVariants.map(v => ({
+          title: v.name,
+          price: v.price,
+          sku: v.sku,
+          available: v.available,
+          stock: v.stock,
+          gid: v.gid
+        }))
+      };
+    }
+    
+    // 💡 FALLBACK: Usar método anterior si no hay datos embebidos
+    console.log(`  💡 Fallback a detección HTML tradicional`);
+    
     // Buscar la clase .product-options
     const productOptions = $('.product-options');
     if (productOptions.length === 0) {
-      // No hay variantes
       return null;
     }
 		
-    // 1. Extraer el label de variante del HTML visible
+    // Extraer el label de variante del HTML visible
     let variantLabel = null;
     const labelSpan = productOptions.find('span.font-normal');
     if (labelSpan.length > 0) {
       variantLabel = labelSpan.text().trim();
     }
     
-    // 2. Extraer variantes del HTML - estrategia simple y confiable
+    // Extraer variantes del HTML
     const variants = [];
     const variantButtons = productOptions.find('button');
     
@@ -258,64 +336,9 @@ async function detectVariants(url) {
         variants.push({
           title: variantValue,
           label: variantLabel
-          // El precio será el precio principal del producto (común en Shopify)
         });
       }
     });
-    
-    // 3. Si no encontramos variantes en HTML, usar VRA como fallback
-    if (variants.length === 0) {
-      $('script').each((i, el) => {
-        const content = $(el).html();
-        if (!content || !content.includes('vra')) return;
-        
-        try {
-          const vraIndex = content.indexOf('"vra":');
-          if (vraIndex === -1) return;
-          
-          const arrayStart = content.indexOf('[', vraIndex);
-          if (arrayStart === -1) return;
-          
-          let depth = 0;
-          let arrayEnd = -1;
-          for (let i = arrayStart; i < content.length; i++) {
-            if (content[i] === '[') depth++;
-            if (content[i] === ']') {
-              depth--;
-              if (depth === 0) {
-                arrayEnd = i;
-                break;
-              }
-            }
-          }
-          
-          if (arrayEnd === -1) return;
-          
-          const vraJson = content.substring(arrayStart, arrayEnd + 1);
-          const vraData = JSON.parse(vraJson);
-          
-          vraData.forEach(([variantId, attributes]) => {
-            const variant = { id: variantId };
-            attributes.forEach(([key, values]) => {
-              if (key === 'Color' || key === 'Valor' || key === 'Tamaño' || key === 'formato') {
-                variant.title = values[0];
-                if (!variantLabel) variantLabel = key;
-              } else if (key === 'Sellable') {
-                variant.available = values[0];
-              }
-            });
-            // Solo usar variantes VRA si tienen título
-            if (variant.title) {
-              variants.push(variant);
-            }
-          });
-          
-          if (variants.length > 0) return false;
-        } catch (e) {
-          // ignore
-        }
-      });
-    }
 		
     if (variants.length === 0) return null;
     return { label: variantLabel, variants };
@@ -448,20 +471,31 @@ async function scrapeAndSave(db, url) {
     if (detected && detected.variants.length > 0) {
       console.log(`  → ${detected.variants.length} variantes (${detected.label})`);
       
-      // ⚡ OPTIMIZACIÓN: Procesar variantes en paralelo usando Promise.all
+      // 🚀 NUEVO: Procesar variantes optimizado (con o sin datos embebidos)
       const variantPromises = detected.variants.map(async (v) => {
-        // ⭐ RESTAURADO: Construir URL de variante con parámetro
         let variantUrl = url;
-        if (detected.label && v.title) {
-          const param = encodeURIComponent(detected.label) + '=' + encodeURIComponent(v.title);
-          variantUrl = url + (url.includes('?') ? '&' : '?') + param;
-        }
+        let variantPrice = v.price; // Precio desde datos embebidos (si existe)
+        let skuFromVariant = v.sku; // SKU desde datos embebidos (si existe)
         
-        // Extraer SKU y precio de la página específica de la variante EN PARALELO
-        const [skuFromHTML, variantPrice] = await Promise.all([
-          extractSKUFromHTML(variantUrl),
-          scrapeSimpleProduct(variantUrl)
-        ]);
+        // Si NO tenemos precio embebido, usar método anterior (request HTTP)
+        if (!variantPrice) {
+          if (detected.label && v.title) {
+            const param = encodeURIComponent(detected.label) + '=' + encodeURIComponent(v.title);
+            variantUrl = url + (url.includes('?') ? '&' : '?') + param;
+          }
+          
+          // Solo hacer requests adicionales si NO tenemos datos embebidos
+          const [skuFromHTML, scrapedPrice] = await Promise.all([
+            skuFromVariant ? Promise.resolve(skuFromVariant) : extractSKUFromHTML(variantUrl),
+            scrapeSimpleProduct(variantUrl)
+          ]);
+          
+          skuFromVariant = skuFromVariant || skuFromHTML;
+          variantPrice = scrapedPrice;
+          console.log(`    🔄 Request adicional para ${v.title}`);
+        } else {
+          console.log(`    🚀 Usando datos embebidos para ${v.title}`);
+        }
         
         // Buscar si la variante ya existe (por product_id + variant_label + variant_value)
         const exists = db.prepare(`
@@ -472,18 +506,18 @@ async function scrapeAndSave(db, url) {
         if (!exists) {
           // INSERT: Nueva variante
           const insertVariant = db.prepare(`
-						INSERT INTO variants (product_id, url, sku, variant_label, variant_value)
-						VALUES (?, ?, ?, ?, ?)
+						INSERT INTO variants (product_id, url, sku, variant_label, variant_value, shopify_gid)
+						VALUES (?, ?, ?, ?, ?, ?)
 					`);
-          insertVariant.run(product.id, variantUrl, skuFromHTML, detected.label, v.title);
-        } else if (exists.sku === null && skuFromHTML) {
+          insertVariant.run(product.id, variantUrl, skuFromVariant, detected.label, v.title, v.gid);
+        } else if (exists.sku === null && skuFromVariant) {
           // UPDATE: Actualizar SKU si está NULL
           const updateSku = db.prepare('UPDATE variants SET sku = ? WHERE id = ?');
-          updateSku.run(skuFromHTML, exists.id);
-          console.log(`    ✏️  SKU actualizado: NULL → ${skuFromHTML}`);
+          updateSku.run(skuFromVariant, exists.id);
+          console.log(`    ✏️  SKU actualizado: NULL → ${skuFromVariant}`);
         }
         
-        // ✅ Guardar precio específico de la variante
+        // ✅ Guardar precio
         const variant = db.prepare(`
           SELECT id FROM variants 
           WHERE product_id = ? AND variant_label = ? AND variant_value = ?
@@ -495,6 +529,13 @@ async function scrapeAndSave(db, url) {
 						VALUES (?, ?, ?)
 					`);
           insertPrice.run(variant.id, variantPrice, 'CRC');
+          
+          // Mostrar precio con información adicional
+          const priceDisplay = `₡${variantPrice.toFixed(0).replace(/\B(?=(\d{3})+(?!\d))/g, ',')}`;
+          const stockInfo = v.stock ? ` (Stock: ${v.stock})` : '';
+          const availability = v.available === false ? ' [AGOTADO]' : '';
+          console.log(`    💰 ${v.title}: ${priceDisplay}${stockInfo}${availability}`);
+        }
           
           // Mostrar precio scrapeado
           const priceDisplay = `₡${variantPrice.toFixed(0).replace(/\B(?=(\d{3})+(?!\d))/g, ',')}`;
@@ -518,8 +559,8 @@ async function scrapeAndSave(db, url) {
         if (!baseVariant) {
           const skuFromHTML = await extractSKUFromHTML(url);
           const insertVariant = db.prepare(`
-            INSERT INTO variants (product_id, url, sku, variant_label, variant_value)
-            VALUES (?, ?, ?, NULL, NULL)
+            INSERT INTO variants (product_id, url, sku, variant_label, variant_value, shopify_gid)
+            VALUES (?, ?, ?, NULL, NULL, NULL)
           `);
           const result = insertVariant.run(product.id, url, skuFromHTML);
           baseVariant = { id: result.lastInsertRowid };
