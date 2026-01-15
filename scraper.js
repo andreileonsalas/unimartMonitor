@@ -40,6 +40,19 @@ const SITEMAP_INDEX_URL = 'https://www.unimart.com/sitemap.xml';
 const PARALLEL_REQUESTS = 30; // Productos en paralelo por batch
 const SITEMAP_PARALLEL_REQUESTS = 15; // Sitemaps en paralelo
 
+// 🛡️ PROTECCIÓN CONTRA RATE LIMITING:
+const TIMEOUT_COOLDOWN_MS = 60000; // 60 segundos de pausa tras timeout
+let lastTimeoutTime = 0; // Timestamp del último timeout detectado
+
+async function waitForCooldown() {
+  const timeSinceLastTimeout = Date.now() - lastTimeoutTime;
+  if (timeSinceLastTimeout < TIMEOUT_COOLDOWN_MS) {
+    const remainingWait = TIMEOUT_COOLDOWN_MS - timeSinceLastTimeout;
+    console.log(`🛡️ Esperando ${Math.ceil(remainingWait/1000)}s para evitar rate limiting...`);
+    await new Promise(resolve => setTimeout(resolve, remainingWait));
+  }
+}
+
 // 🔄 MODO DE OPERACIÓN:
 // --mode=daily: Scrapea solo productos existentes en DB (rápido, actualiza precios)
 // --mode=weekly: Scrapea sitemap completo (descubre nuevos productos + variantes)
@@ -204,6 +217,11 @@ async function extractSKUFromHTML(pageUrl) {
 
     return null;
   } catch (e) {
+    // 🛡️ DETECTAR TIMEOUT EN EXTRACCIÓN DE SKU
+    if (e.code === 'ECONNABORTED' || e.message.includes('timeout')) {
+      lastTimeoutTime = Date.now();
+      console.log(`🛡️ TIMEOUT en extracción de SKU de ${pageUrl}`);
+    }
     console.error(`Error extracting SKU from ${pageUrl}:`, e.message);
     return null;
   }
@@ -302,6 +320,11 @@ async function detectVariants(url) {
     if (variants.length === 0) return null;
     return { label: variantLabel, variants };
   } catch (e) {
+    // 🛡️ DETECTAR TIMEOUT EN DETECCIÓN DE VARIANTES
+    if (e.code === 'ECONNABORTED' || e.message.includes('timeout')) {
+      lastTimeoutTime = Date.now();
+      console.log(`🛡️ TIMEOUT en detección de variantes de ${url}`);
+    }
     console.error('Error fetching product:', url, e.message);
     return null;
   }
@@ -350,12 +373,20 @@ async function scrapeSimpleProduct(url) {
     console.log(`    ⚠️ No se encontró precio con selectores: ${priceSelectors.join(', ')}`);
     return null;
   } catch (e) {
+    // 🛡️ DETECTAR TIMEOUT Y ACTIVAR COOLDOWN
+    if (e.code === 'ECONNABORTED' || e.message.includes('timeout')) {
+      lastTimeoutTime = Date.now();
+      console.log(`    🛡️ TIMEOUT detectado - activando cooldown de 60s`);
+    }
     console.log(`    ❌ Error scrapeando precio: ${e.message}`);
     return null;
   }
 }
 
 async function scrapeAndSave(db, url) {
+  // 🛡️ Verificar si necesitamos esperar por cooldown
+  await waitForCooldown();
+  
   // Guarda el producto base
   let title = url.split('/').pop().replace(/-/g, ' ');
   let status404 = false;
@@ -365,6 +396,12 @@ async function scrapeAndSave(db, url) {
     const $ = cheerio.load(res.data);
     title = $('h1').first().text().trim() || title;
   } catch (e) {
+    // 🛡️ DETECTAR TIMEOUT EN REQUEST PRINCIPAL
+    if (e.code === 'ECONNABORTED' || e.message.includes('timeout')) {
+      lastTimeoutTime = Date.now();
+      console.log(`  🛡️ TIMEOUT detectado en ${url} - activando cooldown`);
+    }
+    
     if (e.response && e.response.status === 404) {
       status404 = true;
       console.log(`  ⚠ 404 - Producto no encontrado: ${url}`);

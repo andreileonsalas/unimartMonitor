@@ -221,7 +221,7 @@ The scraper now supports parallel processing to dramatically improve speed:
 npm run scrape:daily
 npm run scrape:weekly
 
-# Parallel with 8 workers
+# Parallel with default workers (8)
 npm run daily:parallel
 npm run weekly:parallel
 
@@ -232,6 +232,75 @@ node scraper.js --mode=weekly --segments=8 --segment=3
 # Test parallel functionality locally
 node test_segments.js 4 daily    # 4 segments, daily mode
 node test_segments.js 2 weekly   # 2 segments, weekly mode
+```
+
+## ⚙️ CHEATSHEET: Changing Parallel Workers
+
+> **📋 IMPORTANT**: By default, the system uses 8 parallel workers. To change this number, you need to update 3 files consistently.
+
+### 🎯 Quick Example: From 8 to 20 Workers
+
+**What to change in each file:**
+
+#### 1. 📄 `.github/workflows/daily-scraper.yml`
+```yaml
+# FIND this line:
+segment: [1, 2, 3, 4, 5, 6, 7, 8]
+
+# CHANGE to:
+segment: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20]
+
+# ALSO FIND:
+--segments=8 --segment=${{ matrix.segment }}
+
+# CHANGE to:
+--segments=20 --segment=${{ matrix.segment }}
+```
+
+#### 2. 📄 `.github/workflows/weekly-discovery.yml`
+```yaml
+# Same changes as daily-scraper.yml:
+segment: [1, 2, 3, ..., 20]  # List all numbers from 1 to 20
+--segments=20 --segment=${{ matrix.segment }}
+```
+
+#### 3. 📄 `package.json`
+```json
+// FIND these two lines:
+"scrape:daily:segments": "for /L %i in (1,1,8) do start /wait node scraper.js --mode=daily --segments=8 --segment=%i",
+"scrape:weekly:segments": "for /L %i in (1,1,8) do start /wait node scraper.js --mode=weekly --segments=8 --segment=%i",
+
+// CHANGE to:
+"scrape:daily:segments": "for /L %i in (1,1,20) do start /wait node scraper.js --mode=daily --segments=20 --segment=%i",
+"scrape:weekly:segments": "for /L %i in (1,1,20) do start /wait node scraper.js --mode=weekly --segments=20 --segment=%i",
+```
+
+### 🔢 For ANY Number of Workers (N)
+
+**Rule**: Replace `8` with `N` in all the places above, and create a list `[1, 2, 3, ..., N]` in the workflows.
+
+**Examples:**
+- **4 workers**: `[1, 2, 3, 4]` and all `8` → `4`  
+- **12 workers**: `[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]` and all `8` → `12`  
+- **50 workers**: `[1, 2, 3, ..., 50]` and all `8` → `50`
+
+### 💡 Performance Guidelines
+
+| Workers | Speed Gain | GitHub Actions Cost | Recommended For |
+|---------|------------|-------------------|-----------------|
+| 1       | 1x (baseline) | Minimal | Testing, small datasets |
+| 4       | ~3x        | Low | Moderate usage |
+| 8       | ~6x        | Medium | **Default (balanced)** |
+| 20      | ~15x       | High | Heavy usage, time-critical |
+| 50+     | ~30x+      | Very High | Enterprise, maximum speed |
+
+### 🧪 Testing Changes
+
+After modifying the numbers, test locally:
+```bash
+# Test with your new worker count
+node test_segments.js 20 daily    # Replace 20 with your number
+node scraper.js --mode=daily --segments=20 --segment=1
 ```
 
 ## Setup
