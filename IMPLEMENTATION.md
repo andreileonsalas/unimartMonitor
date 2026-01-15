@@ -29,18 +29,29 @@ This implementation provides a complete price tracking solution for unimart.com,
 ```sql
 CREATE TABLE products (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
-  url TEXT UNIQUE NOT NULL,
+  url_base TEXT UNIQUE NOT NULL,
   title TEXT,
-  last_scraped DATETIME
+  status TEXT DEFAULT 'active',
+  last_check DATETIME
+);
+
+CREATE TABLE variants (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  product_id INTEGER NOT NULL,
+  url TEXT UNIQUE NOT NULL,
+  sku TEXT,
+  variant_label TEXT,
+  variant_value TEXT,
+  FOREIGN KEY (product_id) REFERENCES products(id)
 );
 
 CREATE TABLE prices (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
-  product_id INTEGER NOT NULL,
+  variant_id INTEGER NOT NULL,
   price REAL,
-  currency TEXT DEFAULT 'USD',
+  currency TEXT DEFAULT 'CRC',
   scraped_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-  FOREIGN KEY (product_id) REFERENCES products(id)
+  FOREIGN KEY (variant_id) REFERENCES variants(id)
 );
 ```
 

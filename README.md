@@ -336,18 +336,24 @@ El script automáticamente:
 
 ### Products Table
 - `id`: Primary key
-- `url`: Product URL (unique identifier)
-- `sku`: Product SKU from Unimart (indexed for fast search)
+- `url_base`: Product base URL without parameters (unique identifier)
 - `title`: Product title
-- `last_scraped`: Last scrape timestamp
-- `status`: Product status ('active' or '404') - **NEW**
-- `last_check`: Last check timestamp - **NEW**
+- `status`: Product status ('active' or '404')
+- `last_check`: Last check timestamp
 
-**Note:** Both URL and SKU are stored to maintain dual reference. If Unimart changes the URL or SKU, historical data is preserved. The URL column has a UNIQUE constraint to prevent duplicate entries.
+### Variants Table
+- `id`: Primary key
+- `product_id`: Foreign key to products
+- `url`: Full variant URL with parameters (e.g., ?Color=Rojo)
+- `sku`: Variant-specific SKU from Unimart (indexed for fast search)
+- `variant_label`: Type of variant (e.g., 'Color', 'Tamaño', 'Valor')
+- `variant_value`: Specific value (e.g., 'Rojo', 'XL', '64GB')
+
+**Note:** Products can have multiple variants (e.g., different colors). Each variant has its own SKU and price history.
 
 ### Prices Table
 - `id`: Primary key
-- `product_id`: Foreign key to products
+- `variant_id`: Foreign key to variants
 - `price`: Product price
 - `currency`: Currency code (CRC for Costa Rican Colón, USD, EUR, etc.)
 - `scraped_at`: Timestamp of scrape
