@@ -2,8 +2,8 @@ name: Daily Price Update
 
 on:
   schedule:
-    # Run daily at 2 AM UTC (Monday-Saturday)
-    - cron: '0 2 * * 1-6'
+    # Run daily at 10:00 PM Costa Rica (4:00 AM UTC) Monday-Saturday
+    - cron: '0 4 * * 1-6'
   workflow_dispatch: # Allow manual trigger
 
 jobs:

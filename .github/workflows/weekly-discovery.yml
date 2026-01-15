@@ -2,8 +2,8 @@ name: Weekly Discovery & Recovery
 
 on:
   schedule:
-    # Run weekly on Sundays at 3 AM UTC
-    - cron: '0 3 * * 0'
+    # Run weekly on Sundays at 10:00 PM Costa Rica (4:00 AM UTC)
+    - cron: '0 4 * * 0'
   workflow_dispatch: # Allow manual trigger
 
 jobs:
