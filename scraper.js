@@ -14,7 +14,7 @@ const DB_PATH = path.join(__dirname, 'prices.db');
 const SITEMAP_INDEX_URL = 'https://www.unimart.com/sitemap.xml';
 
 // ⚡ OPTIMIZACIÓN DE VELOCIDAD:
-const PARALLEL_REQUESTS = 20; // Productos en paralelo por batch
+const PARALLEL_REQUESTS = 40; // Productos en paralelo por batch
 const SITEMAP_PARALLEL_REQUESTS = 15; // Sitemaps en paralelo
 
 // 🔄 MODO DE OPERACIÓN:
@@ -388,7 +388,8 @@ async function scrapeAndSave(db, url) {
     if (detected && detected.variants.length > 0) {
       console.log(`  → ${detected.variants.length} variantes (${detected.label})`);
       
-      for (const v of detected.variants) {
+      // ⚡ OPTIMIZACIÓN: Procesar variantes en paralelo usando Promise.all
+      const variantPromises = detected.variants.map(async (v) => {
         // ⭐ RESTAURADO: Construir URL de variante con parámetro
         let variantUrl = url;
         if (detected.label && v.title) {
@@ -396,9 +397,11 @@ async function scrapeAndSave(db, url) {
           variantUrl = url + (url.includes('?') ? '&' : '?') + param;
         }
         
-        // Extraer SKU y precio de la página específica de la variante
-        const skuFromHTML = await extractSKUFromHTML(variantUrl);
-        const variantPrice = await scrapeSimpleProduct(variantUrl);
+        // Extraer SKU y precio de la página específica de la variante EN PARALELO
+        const [skuFromHTML, variantPrice] = await Promise.all([
+          extractSKUFromHTML(variantUrl),
+          scrapeSimpleProduct(variantUrl)
+        ]);
         
         // Buscar si la variante ya existe (por product_id + variant_label + variant_value)
         const exists = db.prepare(`
@@ -436,10 +439,15 @@ async function scrapeAndSave(db, url) {
           // Mostrar precio scrapeado
           const priceDisplay = `₡${variantPrice.toFixed(0).replace(/\B(?=(\d{3})+(?!\d))/g, ',')}`;
           console.log(`    💰 ${v.title}: ${priceDisplay}`);
+          return { success: true, variant: v.title, price: priceDisplay };
         } else if (variant && (!variantPrice || variantPrice <= 0)) {
           console.log(`    ⚠️  Sin precio para variante: ${v.title}`);
+          return { success: false, variant: v.title, reason: 'no_price' };
         }
-      }
+      });
+      
+      // Esperar a que todas las variantes se procesen
+      await Promise.all(variantPromises);
     } else {
       // Intentar como producto simple
       const simplePrice = await scrapeSimpleProduct(url);
