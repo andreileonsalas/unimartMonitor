@@ -127,6 +127,28 @@
             box-shadow: 0 0 0 0.2rem rgba(102, 126, 234, 0.25);
         }
 
+        .sort-select {
+            border: 2px solid #e9ecef;
+            border-radius: 0 10px 10px 0;
+            padding: 0.75rem 1rem;
+            font-size: 1rem;
+            background-color: #f8f9fa;
+            min-width: 180px;
+            transition: all 0.2s;
+        }
+
+        .sort-select:focus {
+            border-color: #667eea;
+            box-shadow: 0 0 0 0.2rem rgba(102, 126, 234, 0.25);
+            background-color: white;
+        }
+
+        .input-group .search-input {
+            border-radius: 0;
+            border-left: none;
+            border-right: none;
+        }
+
         .products-container {
             background: white;
             border-radius: 15px;
@@ -359,6 +381,44 @@
                 font-size: 1.5rem;
             }
         }
+
+        .pagination-container {
+            text-align: center;
+            padding: 2rem 1rem;
+            border-top: 1px solid #e9ecef;
+            margin-top: 1rem;
+        }
+
+        .load-more-btn {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border: none;
+            color: white;
+            padding: 0.75rem 2rem;
+            border-radius: 10px;
+            font-size: 1rem;
+            font-weight: 600;
+            transition: all 0.3s;
+            margin-bottom: 1rem;
+        }
+
+        .load-more-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 15px rgba(102, 126, 234, 0.3);
+            color: white;
+        }
+
+        .load-more-btn:disabled {
+            background: #6c757d;
+            transform: none;
+            box-shadow: none;
+            cursor: not-allowed;
+        }
+
+        .pagination-info {
+            color: #6c757d;
+            font-size: 0.9rem;
+            margin-top: 0.5rem;
+        }
     </style>
 </head>
 <body>
@@ -435,7 +495,7 @@
             <!-- Search Box -->
             <div class="search-card">
                 <div class="input-group">
-                    <span class="input-group-text bg-white border-end-0" style="border: 2px solid #e9ecef; border-right: none; border-radius: 10px 0 0 10px;">
+                    <span class="input-group-text bg-white border-end-0" style="border: 2px solid #e9ecef; border-right: none; border-radius: 10px 0 0 0;">
                         <i class="bi bi-search"></i>
                     </span>
                     <input type="text" 
@@ -443,12 +503,25 @@
                            class="form-control search-input border-start-0 ps-0" 
                            placeholder="Buscar por nombre, URL o SKU..."
                            style="border-left: none;">
+                    <select id="sortSelect" class="form-select sort-select" aria-label="Ordenar resultados">
+                        <option value="relevance">📄 Por Relevancia</option>
+                        <option value="price-asc">💰 Precio: Menor a Mayor</option>
+                        <option value="price-desc">💸 Precio: Mayor a Menor</option>
+                    </select>
                 </div>
             </div>
 
             <!-- Products List -->
             <div class="products-container">
                 <div id="productsList"></div>
+                
+                <!-- Pagination -->
+                <div id="paginationContainer" class="pagination-container d-none">
+                    <button id="loadMoreBtn" class="btn load-more-btn">
+                        <i class="bi bi-plus-circle me-2"></i>Cargar más productos
+                    </button>
+                    <div id="paginationInfo" class="pagination-info"></div>
+                </div>
             </div>
         </div>
     </div>
