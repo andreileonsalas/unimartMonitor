@@ -10,11 +10,34 @@ const path = require('path');
 // ============================================================================
 // CONFIGURACIÓN
 // ============================================================================
-const DB_PATH = path.join(__dirname, 'prices.db');
+
+// Configuración de segmentación para procesamiento paralelo
+const SEGMENTS = (() => {
+  const segmentsArg = process.argv.find(arg => arg.startsWith('--segments='));
+  return segmentsArg ? parseInt(segmentsArg.split('=')[1]) : 1;
+})();
+
+const SEGMENT = (() => {
+  const segmentArg = process.argv.find(arg => arg.startsWith('--segment='));
+  return segmentArg ? parseInt(segmentArg.split('=')[1]) : 1;
+})();
+
+// Validar parámetros de segmentación
+if (SEGMENTS < 1 || SEGMENT < 1 || SEGMENT > SEGMENTS) {
+  console.error('❌ Parámetros de segmentación inválidos:');
+  console.error(`   --segments=${SEGMENTS} debe ser >= 1`);
+  console.error(`   --segment=${SEGMENT} debe estar entre 1 y ${SEGMENTS}`);
+  process.exit(1);
+}
+
+// Determinar archivo de base de datos según el segmento
+const DB_PATH = SEGMENTS === 1 
+  ? path.join(__dirname, 'prices.db')
+  : path.join(__dirname, `prices-${SEGMENT}.db`);
 const SITEMAP_INDEX_URL = 'https://www.unimart.com/sitemap.xml';
 
 // ⚡ OPTIMIZACIÓN DE VELOCIDAD:
-const PARALLEL_REQUESTS = 40; // Productos en paralelo por batch
+const PARALLEL_REQUESTS = 30; // Productos en paralelo por batch
 const SITEMAP_PARALLEL_REQUESTS = 15; // Sitemaps en paralelo
 
 // 🔄 MODO DE OPERACIÓN:
@@ -483,10 +506,25 @@ async function scrapeAndSave(db, url) {
 }
 
 async function main() {
+  // En modo daily con segmentación, necesitamos leer productos de la BD principal
+  let sourceDb = null;
+  if (SCRAPE_MODE === 'daily' && SEGMENTS > 1) {
+    const mainDbPath = path.join(__dirname, 'prices.db');
+    if (require('fs').existsSync(mainDbPath)) {
+      sourceDb = new Database(mainDbPath, { readonly: true });
+    }
+  }
+  
   const db = initDatabase();
   console.log('Base de datos inicializada:', DB_PATH);
+  if (sourceDb) {
+    console.log('Base de datos fuente (lectura):', path.join(__dirname, 'prices.db'));
+  }
   console.log('='.repeat(70));
   console.log(`🔄 MODO: ${SCRAPE_MODE}`);
+  if (SEGMENTS > 1) {
+    console.log(`🧩 SEGMENTACIÓN: ${SEGMENT}/${SEGMENTS}`);
+  }
   console.log('='.repeat(70));
   
   let uniqueUrlBases = [];
@@ -495,10 +533,17 @@ async function main() {
     // 📅 MODO DAILY: Solo actualizar precios de productos activos (sin 404s)
     console.log('📅 Modo Daily: Actualizando precios de productos activos\n');
     
-    const products = db.prepare('SELECT url_base FROM products WHERE status != \'404\' OR status IS NULL').all();
+    // Usar BD fuente si existe, si no usar la BD actual
+    const queryDb = sourceDb || db;
+    const products = queryDb.prepare('SELECT url_base FROM products WHERE status != \'404\' OR status IS NULL').all();
     uniqueUrlBases = products.map(p => p.url_base);
     
     console.log(`✓ ${uniqueUrlBases.length} productos activos en base de datos\n`);
+    
+    // Cerrar BD fuente si se usó
+    if (sourceDb) {
+      sourceDb.close();
+    }
     
   } else {
     // 📆 MODO WEEKLY: Descubrir nuevos productos del sitemap
@@ -512,7 +557,9 @@ async function main() {
     let urls = [];
     for (let i = 0; i < productSitemaps.length; i += SITEMAP_PARALLEL_REQUESTS) {
       const batch = productSitemaps.slice(i, i + SITEMAP_PARALLEL_REQUESTS);
-      console.log(`Procesando batch ${Math.floor(i / SITEMAP_PARALLEL_REQUESTS) + 1}/${Math.ceil(productSitemaps.length / SITEMAP_PARALLEL_REQUESTS)} (${batch.length} sitemaps)...`);
+      const batchNum = Math.floor(i / SITEMAP_PARALLEL_REQUESTS) + 1;
+      const totalBatches = Math.ceil(productSitemaps.length / SITEMAP_PARALLEL_REQUESTS);
+      console.log(`Procesando batch ${batchNum}/${totalBatches} (${batch.length} sitemaps)...`);
       
       const batchPromises = batch.map(async (sitemapUrl) => {
         const u = await fetchSitemapUrls(sitemapUrl);
@@ -520,7 +567,13 @@ async function main() {
       });
       
       const results = await Promise.all(batchPromises);
-      results.forEach(u => { urls = urls.concat(u); });
+      const batchUrls = results.flat();
+      urls = urls.concat(batchUrls);
+      
+      // Mostrar progreso cada 10 batches
+      if (batchNum % 10 === 0 || batchNum === totalBatches) {
+        console.log(`   📊 URLs acumuladas: ${urls.length.toLocaleString()}`);
+      }
     }
     
     // Elimina duplicados
@@ -532,6 +585,18 @@ async function main() {
     uniqueUrlBases = [...new Set(urlBases)];
     
     console.log(`\n✓ ${urls.length} URLs en sitemap → ${uniqueUrlBases.length} productos únicos\n`);
+  }
+
+  // 🧩 Dividir productos por segmentos si es necesario
+  if (SEGMENTS > 1) {
+    const segmentSize = Math.ceil(uniqueUrlBases.length / SEGMENTS);
+    const startIndex = (SEGMENT - 1) * segmentSize;
+    const endIndex = Math.min(startIndex + segmentSize, uniqueUrlBases.length);
+    
+    console.log(`🧩 Procesando segmento ${SEGMENT}/${SEGMENTS}:`);
+    console.log(`   Productos ${startIndex + 1}-${endIndex} de ${uniqueUrlBases.length} totales\n`);
+    
+    uniqueUrlBases = uniqueUrlBases.slice(startIndex, endIndex);
   }
 	
   // ⚡ Procesar productos EN PARALELO (20 simultáneos)

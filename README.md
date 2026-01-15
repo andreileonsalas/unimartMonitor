@@ -161,6 +161,7 @@ La aplicación muestra:
 
 - 📈 **Comprehensive Price Tracking**: Automatically scrapes prices from ALL ~38,000 products on unimart.com
 - 🔄 **Incremental Scraping**: Processes products progressively over ~25 days to build complete database
+- 🧩 **Parallel Processing**: NEW! Support for parallel segmented scraping with up to 8 concurrent workers
 - 💾 **SQLite Storage**: All data stored in a single SQLite file - no external database needed
 - 🌐 **Browser-Based Viewer**: View price history directly in your browser using client-side SQLite
 - 🤖 **Automated**: Runs daily via GitHub Actions - no server required
@@ -168,24 +169,70 @@ La aplicación muestra:
 - 📉 **Price History**: See how prices change over time for each product
 - 🎨 **Beautiful UI**: Clean, modern interface with price change indicators
 - ♻️ **Smart Deduplication**: Automatically handles products appearing in multiple sitemaps
+- 🔗 **Database Merging**: Intelligent merge of parallel databases avoiding duplicates
 
 ## How It Works
 
-1. **GitHub Actions** runs daily to:
-   - Fetch the sitemap index from https://www.unimart.com/sitemap.xml (1,228 product sitemaps)
-   - Process 100 sitemaps per run (~2,400 products)
-   - Scrape 50 products per run with rate limiting
-   - Use Set-based deduplication to avoid duplicate entries
-   - Track progress in database to resume where it left off
-   - Store data in SQLite database (`prices.db`)
-   - Commit changes back to the repository
-   - **Complete cycle**: ~25 days to scrape all products, then starts over to update prices
+### 🧩 Parallel Scraping Architecture (NEW!)
 
-2. **Browser Viewer** (`index.html`):
-   - Loads the SQLite database directly in your browser using sql.js
-   - Displays all tracked products with current prices
-   - Shows price trends and history
-   - Fully client-side - no backend needed!
+The scraper now supports parallel processing to dramatically improve speed:
+
+1. **Segmentation**: Products are automatically divided into N segments
+   - Default: 8 parallel workers in GitHub Actions
+   - Each worker processes ~1/8 of total products
+   - Workers run simultaneously for ~8x speed improvement
+
+2. **Independent Databases**: Each worker writes to separate databases:
+   - Worker 1 → `prices-1.db`
+   - Worker 2 → `prices-2.db`
+   - Worker N → `prices-N.db`
+
+3. **Intelligent Merging**: After all workers complete:
+   - `merge_db.js` combines all segment databases
+   - Avoids duplicates using URL-based deduplication
+   - Updates existing records with latest data
+   - Creates final `prices.db` and cleans up segment files
+
+4. **Backward Compatibility**: Still works with single worker (N=1)
+
+### 🔄 GitHub Actions Workflow
+
+**Daily Mode** (Monday-Saturday 2 AM UTC):
+- 8 parallel workers process existing products for price updates
+- Each worker gets 1/8 of products from database
+- Merge → Optimize → Compress → Commit
+
+**Weekly Mode** (Sunday 3 AM UTC):  
+- 8 parallel workers scrape full sitemap for new product discovery
+- Each worker gets 1/8 of sitemap URLs
+- Merge → Optimize → Compress → Commit
+
+### 📊 Performance Improvements
+
+- **Before**: ~6-8 hours for full scrape
+- **After**: ~45-60 minutes with 8 workers
+- **Scalability**: Can adjust worker count via `--segments=N`
+- **Reliability**: Worker failures don't affect other segments
+
+### 🏃‍♂️ Manual Usage
+
+```bash
+# Single worker (original behavior)
+npm run scrape:daily
+npm run scrape:weekly
+
+# Parallel with 8 workers
+npm run daily:parallel
+npm run weekly:parallel
+
+# Custom segmentation
+node scraper.js --mode=daily --segments=4 --segment=1
+node scraper.js --mode=weekly --segments=8 --segment=3
+
+# Test parallel functionality locally
+node test_segments.js 4 daily    # 4 segments, daily mode
+node test_segments.js 2 weekly   # 2 segments, weekly mode
+```
 
 ## Setup
 

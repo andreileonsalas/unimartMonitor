@@ -9,6 +9,9 @@ on:
 jobs:
   weekly-discovery:
     runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        segment: [1, 2, 3, 4, 5, 6, 7, 8]
     permissions:
       contents: write  # Required to commit and push database changes
     
@@ -38,10 +41,46 @@ jobs:
       - name: Optimize database (pre-scrape)
         run: node optimize_db.js
       
-      - name: Run scraper (weekly mode - full sitemap discovery)
-        run: node scraper.js --mode=weekly
+      - name: Run scraper (weekly mode - segment ${{ matrix.segment }})
+        run: node scraper.js --mode=weekly --segments=8 --segment=${{ matrix.segment }}
       
-      - name: Optimize database (post-scrape)
+      - name: Upload segment database
+        uses: actions/upload-artifact@v4
+        with:
+          name: prices-segment-${{ matrix.segment }}
+          path: prices-${{ matrix.segment }}.db
+          retention-days: 1
+
+  merge-and-finalize:
+    needs: weekly-discovery
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write  # Required to commit and push database changes
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      
+      - name: Install dependencies
+        run: npm install
+      
+      - name: Download all segment databases
+        uses: actions/download-artifact@v4
+        with:
+          pattern: prices-segment-*
+          merge-multiple: true
+      
+      - name: Merge segment databases
+        run: node merge_db.js
+      
+      - name: Optimize database (post-merge)
         run: node optimize_db.js
       
       - name: Compress database
