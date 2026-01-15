@@ -109,84 +109,176 @@ async function fetchSitemapUrls(sitemapUrl) {
 }
 
 
+// Extraer SKU del HTML de una página específica
+async function extractSKUFromHTML(pageUrl) {
+  try {
+    const res = await axios.get(pageUrl, { timeout: 20000, headers: { 'User-Agent': 'Mozilla/5.0' } });
+    const $ = cheerio.load(res.data);
+
+    // Buscar SKU en el HTML
+    let sku = null;
+
+    // Intento 1: buscar en meta tags
+    sku = $('meta[itemprop="sku"]').attr('content');
+    if (sku) return sku;
+
+    // Intento 2: buscar en atributos data-sku
+    sku = $('[data-sku]').first().attr('data-sku');
+    if (sku) return sku;
+
+    // Intento 3: buscar en JSON-LD
+    $('script[type="application/ld+json"]').each((i, el) => {
+      try {
+        const jsonData = JSON.parse($(el).html());
+        if (jsonData.sku) {
+          sku = jsonData.sku;
+          return false;
+        }
+      } catch (e) {}
+    });
+    if (sku) return sku;
+
+    // Intento 4: buscar en texto "SKU:" o "SKU ="
+    const html = $.html();
+    let match = html.match(/SKU\s*[:=]\s*([A-Z0-9\-]+)/i);
+    if (match && match[1]) {
+      sku = match[1];
+      // Limpiar prefijo "SKU" si está presente
+      if (sku.startsWith('SKU')) {
+        sku = sku.substring(3);
+      }
+      return sku;
+    }
+
+    // Intento 5: buscar en divs/spans con clase sku
+    sku = $('[class*="sku"]').first().text().trim();
+    if (sku && sku.length < 50 && /[A-Z0-9]/.test(sku)) {
+      if (sku.startsWith('SKU')) {
+        sku = sku.substring(3);
+      }
+      return sku;
+    }
+
+    // Intento 6: buscar en tabla de descripción del producto
+    const descTable = $('.product-description-table');
+    if (descTable.length > 0) {
+      let found = false;
+      descTable.find('tr').each((i, row) => {
+        const cells = $(row).find('td');
+        if (cells.length >= 2) {
+          const firstCell = $(cells[0]).text().trim();
+          const secondCell = $(cells[1]).text().trim();
+          
+          if (firstCell === 'SKU' && secondCell) {
+            sku = secondCell;
+            found = true;
+            return false;
+          }
+        }
+      });
+      if (found) return sku;
+    }
+
+    return null;
+  } catch (e) {
+    console.error(`Error extracting SKU from ${pageUrl}:`, e.message);
+    return null;
+  }
+}
+
 async function detectVariants(url) {
   try {
     const res = await axios.get(url, { timeout: 20000, headers: { 'User-Agent': 'Mozilla/5.0' } });
     const $ = cheerio.load(res.data);
 		
-    // Método simplificado: buscar la clase .product-options
+    // Buscar la clase .product-options
     const productOptions = $('.product-options');
     if (productOptions.length === 0) {
       // No hay variantes
       return null;
     }
 		
-    // Extraer el label de variante del HTML
+    // 1. Extraer el label de variante del HTML visible
     let variantLabel = null;
-    const optionText = productOptions.text();
-    const labelMatch = optionText.match(/(Color|Valor|Tamaño)/);
-    if (labelMatch) {
-      variantLabel = labelMatch[1];
+    const labelSpan = productOptions.find('span.font-normal');
+    if (labelSpan.length > 0) {
+      variantLabel = labelSpan.text().trim();
     }
-		
-    // Ahora extraer las variantes desde el JSON (vra)
+    
+    // 2. Extraer los valores de variantes del HTML (de los <p> dentro de buttons)
     const variants = [];
-    $('script').each((i, el) => {
-      const content = $(el).html();
-      if (!content || !content.includes('vra')) return;
-			
-      try {
-        // Buscar el primer vra array
-        const vraIndex = content.indexOf('"vra":');
-        if (vraIndex === -1) return;
-				
-        const arrayStart = content.indexOf('[', vraIndex);
-        if (arrayStart === -1) return;
-				
-        // Contar corchetes para extraer el array completo
-        let depth = 0;
-        let arrayEnd = -1;
-        for (let i = arrayStart; i < content.length; i++) {
-          if (content[i] === '[') depth++;
-          if (content[i] === ']') {
-            depth--;
-            if (depth === 0) {
-              arrayEnd = i;
-              break;
-            }
-          }
-        }
-				
-        if (arrayEnd === -1) return;
-				
-        const vraJson = content.substring(arrayStart, arrayEnd + 1);
-        const vraData = JSON.parse(vraJson);
-				
-        vraData.forEach(([variantId, attributes]) => {
-          const variant = { id: variantId };
-          attributes.forEach(([key, values]) => {
-            if (key === 'Color' || key === 'Valor' || key === 'Tamaño') {
-              variant.title = values[0];
-              if (!variantLabel) variantLabel = key;
-            } else if (key === 'Product-sku') {
-              variant.sku = values[0];
-            } else if (key === 'Price') {
-              const priceStr = values[0].split(':')[1];
-              variant.price = parseFloat(priceStr);
-            } else if (key === 'Sellable') {
-              variant.available = values[0];
-            }
-          });
-          if (variant.title && variant.sku) {
-            variants.push(variant);
-          }
+    const variantButtons = productOptions.find('button');
+    
+    variantButtons.each((i, el) => {
+      const $button = $(el);
+      const variantValue = $button.find('p').text().trim();
+      
+      if (variantValue && variantValue.length > 0 && !variantValue.match(/Guía|talla/i)) {
+        variants.push({
+          title: variantValue,
+          label: variantLabel,
+          price: null // Será extraído del HTML cuando se haga fetch a la variante
         });
-				
-        if (variants.length > 0) return false; // Salir del each
-      } catch (e) {
-        console.error('Error parseando vra:', e.message);
       }
     });
+    
+    // 3. Si no encontramos variantes por HTML, intentar extraer del VRA (fallback)
+    if (variants.length === 0) {
+      $('script').each((i, el) => {
+        const content = $(el).html();
+        if (!content || !content.includes('vra')) return;
+        
+        try {
+          const vraIndex = content.indexOf('"vra":');
+          if (vraIndex === -1) return;
+          
+          const arrayStart = content.indexOf('[', vraIndex);
+          if (arrayStart === -1) return;
+          
+          let depth = 0;
+          let arrayEnd = -1;
+          for (let i = arrayStart; i < content.length; i++) {
+            if (content[i] === '[') depth++;
+            if (content[i] === ']') {
+              depth--;
+              if (depth === 0) {
+                arrayEnd = i;
+                break;
+              }
+            }
+          }
+          
+          if (arrayEnd === -1) return;
+          
+          const vraJson = content.substring(arrayStart, arrayEnd + 1);
+          const vraData = JSON.parse(vraJson);
+          
+          vraData.forEach(([variantId, attributes]) => {
+            const variant = { id: variantId };
+            let vraPrice = null;
+            attributes.forEach(([key, values]) => {
+              if (key === 'Color' || key === 'Valor' || key === 'Tamaño' || key === 'formato') {
+                variant.title = values[0];
+                if (!variantLabel) variantLabel = key;
+              } else if (key === 'Price') {
+                const priceStr = values[0].split(':')[1];
+                vraPrice = parseFloat(priceStr);
+              } else if (key === 'Sellable') {
+                variant.available = values[0];
+              }
+            });
+            variant.price = vraPrice;
+            if (variant.title) {
+              variants.push(variant);
+            }
+          });
+          
+          if (variants.length > 0) return false;
+        } catch (e) {
+          // ignore
+        }
+      });
+    }
 		
     if (variants.length === 0) return null;
     return { label: variantLabel, variants };
@@ -258,14 +350,24 @@ async function scrapeAndSave(db, url) {
           const param = encodeURIComponent(detected.label) + '=' + encodeURIComponent(v.title);
           variantUrl = url + (url.includes('?') ? '&' : '?') + param;
         }
+        
+        // ⭐ NUEVO: Extraer SKU del HTML de la variante específica
+        const skuFromHTML = await extractSKUFromHTML(variantUrl);
+        
         // Si no hay label o valor, igual guarda la variante pero con la URL base
-        const exists = db.prepare('SELECT id FROM variants WHERE url = ?').get(variantUrl);
+        const exists = db.prepare('SELECT id, sku FROM variants WHERE url = ?').get(variantUrl);
         if (!exists) {
+          // INSERT: Nueva variante
           const insertVariant = db.prepare(`
 						INSERT INTO variants (product_id, url, sku, variant_label, variant_value)
 						VALUES (?, ?, ?, ?, ?)
 					`);
-          insertVariant.run(product.id, variantUrl, v.sku, detected.label, v.title);
+          insertVariant.run(product.id, variantUrl, skuFromHTML, detected.label, v.title);
+        } else if (exists.sku === null && skuFromHTML) {
+          // UPDATE: Actualizar SKU si está NULL
+          const updateSku = db.prepare('UPDATE variants SET sku = ? WHERE id = ?');
+          updateSku.run(skuFromHTML, exists.id);
+          console.log(`    ✏️  SKU actualizado: NULL → ${skuFromHTML}`);
         }
         
         // ✅ SIEMPRE guardar precio (aunque la variante ya exista) para historial
