@@ -8,14 +8,78 @@ const Database = require('better-sqlite3');
 const path = require('path');
 
 // ============================================================================
+// SISTEMA DE LOGGING
+// ============================================================================
+
+// Variable para controlar logs de debugging
+const DEBUG = process.env.DEBUG === 'true' || process.argv.includes('--debug');
+
+// Función logger con diferentes niveles
+const log = {
+  debug: (...args) => {
+    if (DEBUG) {
+      console.log('🐛 [DEBUG]', ...args);
+    }
+  },
+  info: (...args) => {
+    console.log('ℹ️  [INFO]', ...args);
+  },
+  warn: (...args) => {
+    console.log('⚠️  [WARN]', ...args);
+  },
+  error: (...args) => {
+    console.error('❌ [ERROR]', ...args);
+  },
+  success: (...args) => {
+    console.log('✅ [SUCCESS]', ...args);
+  }
+};
+
+// ============================================================================
 // CONFIGURACIÓN
 // ============================================================================
-const DB_PATH = path.join(__dirname, 'prices.db');
+
+// Configuración de segmentación para procesamiento paralelo
+const SEGMENTS = (() => {
+  const segmentsArg = process.argv.find(arg => arg.startsWith('--segments='));
+  return segmentsArg ? parseInt(segmentsArg.split('=')[1]) : 1;
+})();
+
+const SEGMENT = (() => {
+  const segmentArg = process.argv.find(arg => arg.startsWith('--segment='));
+  return segmentArg ? parseInt(segmentArg.split('=')[1]) : 1;
+})();
+
+// Validar parámetros de segmentación
+if (SEGMENTS < 1 || SEGMENT < 1 || SEGMENT > SEGMENTS) {
+  log.error('Parámetros de segmentación inválidos:');
+  log.error(`   --segments=${SEGMENTS} debe ser >= 1`);
+  log.error(`   --segment=${SEGMENT} debe estar entre 1 y ${SEGMENTS}`);
+  process.exit(1);
+}
+
+// Determinar archivo de base de datos según el segmento
+const DB_PATH = SEGMENTS === 1 
+  ? path.join(__dirname, 'prices.db')
+  : path.join(__dirname, `prices-${SEGMENT}.db`);
 const SITEMAP_INDEX_URL = 'https://www.unimart.com/sitemap.xml';
 
 // ⚡ OPTIMIZACIÓN DE VELOCIDAD:
-const PARALLEL_REQUESTS = 40; // Productos en paralelo por batch
+const PARALLEL_REQUESTS = 30; // Productos en paralelo por batch
 const SITEMAP_PARALLEL_REQUESTS = 15; // Sitemaps en paralelo
+
+// 🛡️ PROTECCIÓN CONTRA RATE LIMITING:
+const TIMEOUT_COOLDOWN_MS = 60000; // 60 segundos de pausa tras timeout
+let lastTimeoutTime = 0; // Timestamp del último timeout detectado
+
+async function waitForCooldown() {
+  const timeSinceLastTimeout = Date.now() - lastTimeoutTime;
+  if (timeSinceLastTimeout < TIMEOUT_COOLDOWN_MS) {
+    const remainingWait = TIMEOUT_COOLDOWN_MS - timeSinceLastTimeout;
+    log.warn(`Esperando ${Math.ceil(remainingWait/1000)}s para evitar rate limiting...`);
+    await new Promise(resolve => setTimeout(resolve, remainingWait));
+  }
+}
 
 // 🔄 MODO DE OPERACIÓN:
 // --mode=daily: Scrapea solo productos existentes en DB (rápido, actualiza precios)
@@ -44,6 +108,7 @@ function initDatabase() {
 			sku TEXT,
 			variant_label TEXT,
 			variant_value TEXT,
+			shopify_gid TEXT,
 			FOREIGN KEY (product_id) REFERENCES products(id)
 		);
 		CREATE TABLE IF NOT EXISTS prices (
@@ -61,8 +126,12 @@ function initDatabase() {
 		CREATE INDEX IF NOT EXISTS idx_prices_variant_id ON prices(variant_id);
 	`);
   
-  // Agregar columnas status y last_check si no existen (para bases de datos migradas)
-  try {
+  // Agregar columnas status y last_check si no existen (para bases de datos migradas)	// Agregar columna shopify_gid si no existe
+	try {
+		db.exec('ALTER TABLE variants ADD COLUMN shopify_gid TEXT');
+	} catch (e) {
+		// Columna ya existe, ignorar error
+	}  try {
     db.exec('ALTER TABLE products ADD COLUMN status TEXT DEFAULT \'active\'');
   } catch {
     // Columna ya existe
@@ -74,6 +143,53 @@ function initDatabase() {
   }
   
   return db;
+}
+
+// 🚀 OPTIMIZACIÓN: Extraer TODAS las variantes de una sola llamada HTTP
+// Usando la misma lógica exitosa del battle test
+function extractVariantsFromHTML(html) {
+  const variants = [];
+  
+  try {
+    // 🚀 USAR MÉTODO REGEX COMO EN BATTLE TEST - MÁS ROBUSTO
+    // Patrón mejorado para capturar también el contexto del producto
+    const extendedPattern = /"firstSelectableVariant":\s*(\{(?:[^{}]|\{[^{}]*\})*\})/g;
+    let match;
+    
+    // Buscar todas las variantes con firstSelectableVariant
+    while ((match = extendedPattern.exec(html)) !== null) {
+      try {
+        const variant = JSON.parse(match[1]);
+        
+        if (variant.sku) {
+          const extractedVariant = {
+            name: variant.title === "Default Title" 
+              ? (variant.product?.title || 'Variante')
+              : variant.title, // ✅ USAR título del producto si variant.title es "Default Title"
+            sku: variant.sku,
+            price: variant.price?.amount ? parseFloat(variant.price.amount) : null,
+            comparePrice: variant.compareAtPrice?.amount ? parseFloat(variant.compareAtPrice.amount) : null,
+            available: variant.availableForSale ?? true,
+            stock: variant.quantityAvailable || null,
+            gid: variant.id?.toString() || null, // ✨ CAPTURAR GID DE SHOPIFY
+            label: 'Color' // Usar label por defecto como en battle test
+          };
+          
+          variants.push(extractedVariant);
+        }
+      } catch (e) {
+        // Ignorar errores de parsing individual
+      }
+    }
+    
+    // Eliminar duplicados por SKU como en battle test
+    return variants.filter((variant, index, self) => 
+      index === self.findIndex(v => v.sku === variant.sku)
+    );
+
+  } catch (error) {
+    return [];
+  }
 }
 
 async function fetchProductSitemaps() {
@@ -88,7 +204,7 @@ async function fetchProductSitemaps() {
     }
     return [];
   } catch (e) {
-    console.error('Error fetching sitemap index:', e.message);
+    log.error('Error fetching sitemap index:', e.message);
     return [];
   }
 }
@@ -103,11 +219,10 @@ async function fetchSitemapUrls(sitemapUrl) {
     }
     return [];
   } catch (e) {
-    console.error('Error fetching sitemap:', sitemapUrl, e.message);
+    log.error('Error fetching sitemap:', sitemapUrl, e.message);
     return [];
   }
 }
-
 
 // Extraer SKU del HTML de una página específica
 async function extractSKUFromHTML(pageUrl) {
@@ -181,31 +296,57 @@ async function extractSKUFromHTML(pageUrl) {
 
     return null;
   } catch (e) {
-    console.error(`Error extracting SKU from ${pageUrl}:`, e.message);
+    // 🛡️ DETECTAR TIMEOUT EN EXTRACCIÓN DE SKU
+    if (e.code === 'ECONNABORTED' || e.message.includes('timeout')) {
+      lastTimeoutTime = Date.now();
+      log.warn(`TIMEOUT en extracción de SKU de ${pageUrl}`);
+    }
+    log.error(`Error extracting SKU from ${pageUrl}:`, e.message);
     return null;
   }
 }
 
+// 🚀 OPTIMIZADO: Detecta variantes usando extracción de UNA sola llamada
 async function detectVariants(url) {
   try {
     const res = await axios.get(url, { timeout: 20000, headers: { 'User-Agent': 'Mozilla/5.0' } });
     const $ = cheerio.load(res.data);
+    const html = res.data;
 		
+    // 🚀 NUEVA OPTIMIZACIÓN: Extraer variantes del JSON embebido
+    const embeddedVariants = extractVariantsFromHTML(html);
+    if (embeddedVariants.length > 0) {
+      log.info(`  🚀 Extraídas ${embeddedVariants.length} variantes de datos embebidos`);
+      return { 
+        label: embeddedVariants[0].label || 'Color',
+        variants: embeddedVariants.map(v => ({
+          title: v.name,
+          price: v.price,
+          sku: v.sku,
+          available: v.available,
+          stock: v.stock,
+          gid: v.gid
+        }))
+      };
+    }
+    
+    // 💡 FALLBACK: Usar método anterior si no hay datos embebidos
+    log.info(`  💡 Fallback a detección HTML tradicional`);
+    
     // Buscar la clase .product-options
     const productOptions = $('.product-options');
     if (productOptions.length === 0) {
-      // No hay variantes
       return null;
     }
 		
-    // 1. Extraer el label de variante del HTML visible
+    // Extraer el label de variante del HTML visible
     let variantLabel = null;
     const labelSpan = productOptions.find('span.font-normal');
     if (labelSpan.length > 0) {
       variantLabel = labelSpan.text().trim();
     }
     
-    // 2. Extraer variantes del HTML - estrategia simple y confiable
+    // Extraer variantes del HTML
     const variants = [];
     const variantButtons = productOptions.find('button');
     
@@ -217,69 +358,19 @@ async function detectVariants(url) {
         variants.push({
           title: variantValue,
           label: variantLabel
-          // El precio será el precio principal del producto (común en Shopify)
         });
       }
     });
-    
-    // 3. Si no encontramos variantes en HTML, usar VRA como fallback
-    if (variants.length === 0) {
-      $('script').each((i, el) => {
-        const content = $(el).html();
-        if (!content || !content.includes('vra')) return;
-        
-        try {
-          const vraIndex = content.indexOf('"vra":');
-          if (vraIndex === -1) return;
-          
-          const arrayStart = content.indexOf('[', vraIndex);
-          if (arrayStart === -1) return;
-          
-          let depth = 0;
-          let arrayEnd = -1;
-          for (let i = arrayStart; i < content.length; i++) {
-            if (content[i] === '[') depth++;
-            if (content[i] === ']') {
-              depth--;
-              if (depth === 0) {
-                arrayEnd = i;
-                break;
-              }
-            }
-          }
-          
-          if (arrayEnd === -1) return;
-          
-          const vraJson = content.substring(arrayStart, arrayEnd + 1);
-          const vraData = JSON.parse(vraJson);
-          
-          vraData.forEach(([variantId, attributes]) => {
-            const variant = { id: variantId };
-            attributes.forEach(([key, values]) => {
-              if (key === 'Color' || key === 'Valor' || key === 'Tamaño' || key === 'formato') {
-                variant.title = values[0];
-                if (!variantLabel) variantLabel = key;
-              } else if (key === 'Sellable') {
-                variant.available = values[0];
-              }
-            });
-            // Solo usar variantes VRA si tienen título
-            if (variant.title) {
-              variants.push(variant);
-            }
-          });
-          
-          if (variants.length > 0) return false;
-        } catch (e) {
-          // ignore
-        }
-      });
-    }
 		
     if (variants.length === 0) return null;
     return { label: variantLabel, variants };
   } catch (e) {
-    console.error('Error fetching product:', url, e.message);
+    // 🛡️ DETECTAR TIMEOUT EN DETECCIÓN DE VARIANTES
+    if (e.code === 'ECONNABORTED' || e.message.includes('timeout')) {
+      lastTimeoutTime = Date.now();
+      log.warn(`TIMEOUT en detección de variantes de ${url}`);
+    }
+    log.error('Error fetching product:', url, e.message);
     return null;
   }
 }
@@ -317,22 +408,30 @@ async function scrapeSimpleProduct(url) {
           // Extraer número del formato ₡XX,XXX
           const price = parseFloat(priceText.replace(/[^\d.]/g, ''));
           if (!isNaN(price) && price > 0) {
-            console.log(`    💰 Precio: ₡${price.toFixed(0).replace(/\B(?=(\d{3})+(?!\d))/g, ',')}`);
+            log.debug(`    💰 Precio: ₡${price.toFixed(0).replace(/\B(?=(\d{3})+(?!\d))/g, ',')}`);
             return price;
           }
         }
       }
     }
     
-    console.log(`    ⚠️ No se encontró precio con selectores: ${priceSelectors.join(', ')}`);
+    log.warn(`No se encontró precio con selectores: ${priceSelectors.join(', ')}`);
     return null;
   } catch (e) {
-    console.log(`    ❌ Error scrapeando precio: ${e.message}`);
+    // 🛡️ DETECTAR TIMEOUT Y ACTIVAR COOLDOWN
+    if (e.code === 'ECONNABORTED' || e.message.includes('timeout')) {
+      lastTimeoutTime = Date.now();
+      console.log(`    🛡️ TIMEOUT detectado - activando cooldown de 60s`);
+    }
+    log.error(`Error scrapeando precio: ${e.message}`);
     return null;
   }
 }
 
 async function scrapeAndSave(db, url) {
+  // 🛡️ Verificar si necesitamos esperar por cooldown
+  await waitForCooldown();
+  
   // Guarda el producto base
   let title = url.split('/').pop().replace(/-/g, ' ');
   let status404 = false;
@@ -342,6 +441,12 @@ async function scrapeAndSave(db, url) {
     const $ = cheerio.load(res.data);
     title = $('h1').first().text().trim() || title;
   } catch (e) {
+    // 🛡️ DETECTAR TIMEOUT EN REQUEST PRINCIPAL
+    if (e.code === 'ECONNABORTED' || e.message.includes('timeout')) {
+      lastTimeoutTime = Date.now();
+      console.log(`  🛡️ TIMEOUT detectado en ${url} - activando cooldown`);
+    }
+    
     if (e.response && e.response.status === 404) {
       status404 = true;
       console.log(`  ⚠ 404 - Producto no encontrado: ${url}`);
@@ -379,71 +484,141 @@ async function scrapeAndSave(db, url) {
     insertProduct.run(urlBase, title);
     const product = db.prepare('SELECT id FROM products WHERE url_base = ?').get(urlBase);
     if (!product) {
-      console.log('  ⚠ No se pudo insertar producto');
+      log.warn('No se pudo insertar producto');
       return;
     }
 
     // Detecta variantes
     const detected = await detectVariants(url);
     if (detected && detected.variants.length > 0) {
-      console.log(`  → ${detected.variants.length} variantes (${detected.label})`);
+      log.info(`  → ${detected.variants.length} variantes (${detected.label})`);
       
-      // ⚡ OPTIMIZACIÓN: Procesar variantes en paralelo usando Promise.all
-      const variantPromises = detected.variants.map(async (v) => {
-        // ⭐ RESTAURADO: Construir URL de variante con parámetro
+      // 🚀 NUEVO: Procesar variantes optimizado (con o sin datos embebidos)
+      const variantPromises = detected.variants.map(async (v, index) => {
+        log.debug(`\n    🔍 PROCESANDO VARIANTE ${index + 1}/${detected.variants.length}:`);
+        log.debug(`       🏷️  Título: "${v.title}"`);
+        log.debug(`       📋 SKU: "${v.sku || 'N/A'}"`);
+        log.debug(`       💰 Precio embebido: ${v.price || 'N/A'}`);
+        log.debug(`       🆔 GID: "${v.gid || 'N/A'}"`);
+        
         let variantUrl = url;
-        if (detected.label && v.title) {
-          const param = encodeURIComponent(detected.label) + '=' + encodeURIComponent(v.title);
-          variantUrl = url + (url.includes('?') ? '&' : '?') + param;
+        let variantPrice = v.price; // Precio desde datos embebidos (si existe)
+        let skuFromVariant = v.sku; // SKU desde datos embebidos (si existe)
+        
+        // Si NO tenemos precio embebido, usar método anterior (request HTTP)
+        if (!variantPrice) {
+          if (detected.label && v.title) {
+            const param = encodeURIComponent(detected.label) + '=' + encodeURIComponent(v.title);
+            variantUrl = url + (url.includes('?') ? '&' : '?') + param;
+            log.debug(`       🔗 URL construida: ${variantUrl}`);
+          } else {
+            log.debug(`       🔗 URL base (sin parámetros): ${variantUrl}`);
+          }
+          
+          // Solo hacer requests adicionales si NO tenemos datos embebidos
+          const [skuFromHTML, scrapedPrice] = await Promise.all([
+            skuFromVariant ? Promise.resolve(skuFromVariant) : extractSKUFromHTML(variantUrl),
+            scrapeSimpleProduct(variantUrl)
+          ]);
+          
+          skuFromVariant = skuFromVariant || skuFromHTML;
+          variantPrice = scrapedPrice;
+          log.debug(`    🔄 Request adicional para ${v.title}`);
+        } else {
+          log.info(`    🚀 Usando datos embebidos para ${v.title}`);
         }
         
-        // Extraer SKU y precio de la página específica de la variante EN PARALELO
-        const [skuFromHTML, variantPrice] = await Promise.all([
-          extractSKUFromHTML(variantUrl),
-          scrapeSimpleProduct(variantUrl)
-        ]);
+        // Buscar si la variante ya existe (por URL o por product_id + variant_label + variant_value)
+        log.debug(`       🔍 Verificando existencia...`);
+        log.debug(`          📊 product_id: ${product.id}`);
+        log.debug(`          🏷️  label: "${detected.label}"`);
+        log.debug(`          📝 value: "${v.title}"`);
+        log.debug(`          🔗 url: "${variantUrl}"`);
         
-        // Buscar si la variante ya existe (por product_id + variant_label + variant_value)
         const exists = db.prepare(`
           SELECT id, sku FROM variants 
-          WHERE product_id = ? AND variant_label = ? AND variant_value = ?
-        `).get(product.id, detected.label, v.title);
+          WHERE url = ? OR (product_id = ? AND variant_label = ? AND variant_value = ?)
+        `).get(variantUrl, product.id, detected.label, v.title);
+        
+        if (exists) {
+          log.debug(`       ✅ ENCONTRADA variante existente (ID: ${exists.id}, SKU: ${exists.sku || 'NULL'})`);
+        } else {
+          log.debug(`       🆕 NUEVA variante - será insertada`);
+        }
         
         if (!exists) {
           // INSERT: Nueva variante
+          log.debug(`       ➕ INSERTANDO nueva variante...`);
+          log.debug(`          📊 product_id: ${product.id}`);
+          log.debug(`          🔗 url: "${variantUrl}"`);
+          log.debug(`          📋 sku: "${skuFromVariant || 'NULL'}"`);
+          log.debug(`          🏷️  label: "${detected.label}"`);
+          log.debug(`          📝 value: "${v.title}"`);
+          log.debug(`          🆔 gid: "${v.gid || 'NULL'}"`);
+          
           const insertVariant = db.prepare(`
-						INSERT INTO variants (product_id, url, sku, variant_label, variant_value)
-						VALUES (?, ?, ?, ?, ?)
+						INSERT INTO variants (product_id, url, sku, variant_label, variant_value, shopify_gid)
+						VALUES (?, ?, ?, ?, ?, ?)
 					`);
-          insertVariant.run(product.id, variantUrl, skuFromHTML, detected.label, v.title);
-        } else if (exists.sku === null && skuFromHTML) {
+          
+          try {
+            const result = insertVariant.run(product.id, variantUrl, skuFromVariant, detected.label, v.title, v.gid);
+            log.debug(`       ✅ INSERTADA con ID: ${result.lastInsertRowid}`);
+          } catch (insertError) {
+            log.error(`ERROR EN INSERCIÓN: ${insertError.message}`);
+            return { success: false, variant: v.title, reason: 'insert_error', error: insertError.message };
+          }
+        } else if (exists.sku === null && skuFromVariant) {
           // UPDATE: Actualizar SKU si está NULL
+          log.debug(`       ✏️  ACTUALIZANDO SKU: NULL → "${skuFromVariant}"`);
           const updateSku = db.prepare('UPDATE variants SET sku = ? WHERE id = ?');
-          updateSku.run(skuFromHTML, exists.id);
-          console.log(`    ✏️  SKU actualizado: NULL → ${skuFromHTML}`);
+          updateSku.run(skuFromVariant, exists.id);
+          log.debug(`       ✅ SKU actualizado exitosamente`);
+        } else {
+          log.debug(`       ⏭️  Sin cambios necesarios (SKU ya existe: "${exists.sku}")`);
         }
         
-        // ✅ Guardar precio específico de la variante
+        // ✅ Guardar precio
+        log.debug(`\n       💰 PROCESANDO PRECIO...`);
         const variant = db.prepare(`
           SELECT id FROM variants 
-          WHERE product_id = ? AND variant_label = ? AND variant_value = ?
-        `).get(product.id, detected.label, v.title);
+          WHERE url = ? OR (product_id = ? AND variant_label = ? AND variant_value = ?)
+        `).get(variantUrl, product.id, detected.label, v.title);
         
-        if (variant && variantPrice && variantPrice > 0) {
-          const insertPrice = db.prepare(`
+        if (variant) {
+          log.debug(`       🎯 Variante encontrada para precio (ID: ${variant.id})`);
+          
+          if (variantPrice && variantPrice > 0) {
+            log.debug(`       💵 Insertando precio: ₡${variantPrice} CRC`);
+            const insertPrice = db.prepare(`
 						INSERT INTO prices (variant_id, price, currency)
 						VALUES (?, ?, ?)
 					`);
-          insertPrice.run(variant.id, variantPrice, 'CRC');
-          
-          // Mostrar precio scrapeado
-          const priceDisplay = `₡${variantPrice.toFixed(0).replace(/\B(?=(\d{3})+(?!\d))/g, ',')}`;
-          console.log(`    💰 ${v.title}: ${priceDisplay}`);
-          return { success: true, variant: v.title, price: priceDisplay };
-        } else if (variant && (!variantPrice || variantPrice <= 0)) {
-          console.log(`    ⚠️  Sin precio para variante: ${v.title}`);
-          return { success: false, variant: v.title, reason: 'no_price' };
+            
+            try {
+              const priceResult = insertPrice.run(variant.id, variantPrice, 'CRC');
+              log.debug(`       ✅ PRECIO GUARDADO (ID: ${priceResult.lastInsertRowid})`);
+              
+              // Mostrar precio con información adicional
+              const priceDisplay = `₡${variantPrice.toFixed(0).replace(/\B(?=(\d{3})+(?!\d))/g, ',')}`;
+              const stockInfo = v.stock ? ` (Stock: ${v.stock})` : '';
+              const availability = v.available === false ? ' [AGOTADO]' : '';
+              log.info(`    💰 ${v.title}: ${priceDisplay}${stockInfo}${availability}`);
+              return { success: true, variant: v.title, price: priceDisplay };
+            } catch (priceError) {
+              log.error(`ERROR guardando precio: ${priceError.message}`);
+              return { success: false, variant: v.title, reason: 'price_error', error: priceError.message };
+            }
+          } else {
+            log.warn(`Sin precio válido para ${v.title}: ${variantPrice}`);
+            return { success: false, variant: v.title, reason: 'no_valid_price' };
+          }
+        } else {
+          log.error(`No se encontró variante para guardar precio: ${v.title}`);
+          return { success: false, variant: v.title, reason: 'variant_not_found' };
         }
+        
+        return { success: false, variant: v.title, reason: 'no_variant_found' };
       });
       
       // Esperar a que todas las variantes se procesen
@@ -458,8 +633,8 @@ async function scrapeAndSave(db, url) {
         if (!baseVariant) {
           const skuFromHTML = await extractSKUFromHTML(url);
           const insertVariant = db.prepare(`
-            INSERT INTO variants (product_id, url, sku, variant_label, variant_value)
-            VALUES (?, ?, ?, NULL, NULL)
+            INSERT INTO variants (product_id, url, sku, variant_label, variant_value, shopify_gid)
+            VALUES (?, ?, ?, NULL, NULL, NULL)
           `);
           const result = insertVariant.run(product.id, url, skuFromHTML);
           baseVariant = { id: result.lastInsertRowid };
@@ -472,7 +647,7 @@ async function scrapeAndSave(db, url) {
         `);
         insertPrice.run(baseVariant.id, simplePrice, 'CRC');
         
-        console.log(`  💰 Producto simple: ₡${simplePrice.toFixed(0).replace(/\B(?=(\d{3})+(?!\d))/g, ',')}`);
+        log.info(`  💰 Producto simple: ₡${simplePrice.toFixed(0).replace(/\B(?=(\d{3})+(?!\d))/g, ',')}`);
       } else {
         console.log('  ❌ Sin precios encontrados');
       }
@@ -483,26 +658,48 @@ async function scrapeAndSave(db, url) {
 }
 
 async function main() {
+  // En modo daily con segmentación, necesitamos leer productos de la BD principal
+  let sourceDb = null;
+  if (SCRAPE_MODE === 'daily' && SEGMENTS > 1) {
+    const mainDbPath = path.join(__dirname, 'prices.db');
+    if (require('fs').existsSync(mainDbPath)) {
+      sourceDb = new Database(mainDbPath, { readonly: true });
+    }
+  }
+  
   const db = initDatabase();
-  console.log('Base de datos inicializada:', DB_PATH);
-  console.log('='.repeat(70));
+  log.info('Base de datos inicializada:', DB_PATH);
+  if (sourceDb) {
+    log.info('Base de datos fuente (lectura):', path.join(__dirname, 'prices.db'));
+  }
+  log.info('='.repeat(70));
   console.log(`🔄 MODO: ${SCRAPE_MODE}`);
+  if (SEGMENTS > 1) {
+    console.log(`🧩 SEGMENTACIÓN: ${SEGMENT}/${SEGMENTS}`);
+  }
   console.log('='.repeat(70));
   
   let uniqueUrlBases = [];
   
   if (SCRAPE_MODE === 'daily') {
     // 📅 MODO DAILY: Solo actualizar precios de productos activos (sin 404s)
-    console.log('📅 Modo Daily: Actualizando precios de productos activos\n');
+    log.info('📅 Modo Daily: Actualizando precios de productos activos\n');
     
-    const products = db.prepare('SELECT url_base FROM products WHERE status != \'404\' OR status IS NULL').all();
+    // Usar BD fuente si existe, si no usar la BD actual
+    const queryDb = sourceDb || db;
+    const products = queryDb.prepare('SELECT url_base FROM products WHERE status != \'404\' OR status IS NULL').all();
     uniqueUrlBases = products.map(p => p.url_base);
     
-    console.log(`✓ ${uniqueUrlBases.length} productos activos en base de datos\n`);
+    log.info(`✓ ${uniqueUrlBases.length} productos activos en base de datos\n`);
+    
+    // Cerrar BD fuente si se usó
+    if (sourceDb) {
+      sourceDb.close();
+    }
     
   } else {
     // 📆 MODO WEEKLY: Descubrir nuevos productos del sitemap
-    console.log('📆 Modo Weekly: Descubriendo productos del sitemap\n');
+    log.info('📆 Modo Weekly: Descubriendo productos del sitemap\n');
     
     // Descubre TODOS los sitemaps de productos
     const productSitemaps = await fetchProductSitemaps();
@@ -512,7 +709,9 @@ async function main() {
     let urls = [];
     for (let i = 0; i < productSitemaps.length; i += SITEMAP_PARALLEL_REQUESTS) {
       const batch = productSitemaps.slice(i, i + SITEMAP_PARALLEL_REQUESTS);
-      console.log(`Procesando batch ${Math.floor(i / SITEMAP_PARALLEL_REQUESTS) + 1}/${Math.ceil(productSitemaps.length / SITEMAP_PARALLEL_REQUESTS)} (${batch.length} sitemaps)...`);
+      const batchNum = Math.floor(i / SITEMAP_PARALLEL_REQUESTS) + 1;
+      const totalBatches = Math.ceil(productSitemaps.length / SITEMAP_PARALLEL_REQUESTS);
+      console.log(`Procesando batch ${batchNum}/${totalBatches} (${batch.length} sitemaps)...`);
       
       const batchPromises = batch.map(async (sitemapUrl) => {
         const u = await fetchSitemapUrls(sitemapUrl);
@@ -520,7 +719,13 @@ async function main() {
       });
       
       const results = await Promise.all(batchPromises);
-      results.forEach(u => { urls = urls.concat(u); });
+      const batchUrls = results.flat();
+      urls = urls.concat(batchUrls);
+      
+      // Mostrar progreso cada 10 batches
+      if (batchNum % 10 === 0 || batchNum === totalBatches) {
+        console.log(`   📊 URLs acumuladas: ${urls.length.toLocaleString()}`);
+      }
     }
     
     // Elimina duplicados
@@ -532,6 +737,18 @@ async function main() {
     uniqueUrlBases = [...new Set(urlBases)];
     
     console.log(`\n✓ ${urls.length} URLs en sitemap → ${uniqueUrlBases.length} productos únicos\n`);
+  }
+
+  // 🧩 Dividir productos por segmentos si es necesario
+  if (SEGMENTS > 1) {
+    const segmentSize = Math.ceil(uniqueUrlBases.length / SEGMENTS);
+    const startIndex = (SEGMENT - 1) * segmentSize;
+    const endIndex = Math.min(startIndex + segmentSize, uniqueUrlBases.length);
+    
+    console.log(`🧩 Procesando segmento ${SEGMENT}/${SEGMENTS}:`);
+    console.log(`   Productos ${startIndex + 1}-${endIndex} de ${uniqueUrlBases.length} totales\n`);
+    
+    uniqueUrlBases = uniqueUrlBases.slice(startIndex, endIndex);
   }
 	
   // ⚡ Procesar productos EN PARALELO (20 simultáneos)

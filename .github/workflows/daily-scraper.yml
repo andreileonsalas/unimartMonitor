@@ -2,13 +2,16 @@ name: Daily Price Update
 
 on:
   schedule:
-    # Run daily at 2 AM UTC (Monday-Saturday)
-    - cron: '0 2 * * 1-6'
+    # Run daily at 10:00 PM Costa Rica (4:00 AM UTC) Monday-Saturday
+    - cron: '0 4 * * 1-6'
   workflow_dispatch: # Allow manual trigger
 
 jobs:
   daily-scrape:
     runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        segment: [1, 2]
     permissions:
       contents: write  # Required to commit and push database changes
     
@@ -38,10 +41,46 @@ jobs:
       - name: Optimize database (pre-scrape)
         run: node optimize_db.js
       
-      - name: Run scraper (daily mode - existing products only)
-        run: node scraper.js --mode=daily
+      - name: Run scraper (daily mode - segment ${{ matrix.segment }})
+        run: node scraper.js --mode=daily --segments=2 --segment=${{ matrix.segment }}
       
-      - name: Optimize database (post-scrape)
+      - name: Upload segment database
+        uses: actions/upload-artifact@v4
+        with:
+          name: prices-segment-${{ matrix.segment }}
+          path: prices-${{ matrix.segment }}.db
+          retention-days: 1
+
+  merge-and-finalize:
+    needs: daily-scrape
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write  # Required to commit and push database changes
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      
+      - name: Install dependencies
+        run: npm install
+      
+      - name: Download all segment databases
+        uses: actions/download-artifact@v4
+        with:
+          pattern: prices-segment-*
+          merge-multiple: true
+      
+      - name: Merge segment databases
+        run: node merge_db.js
+      
+      - name: Optimize database (post-merge)
         run: node optimize_db.js
       
       - name: Compress database
