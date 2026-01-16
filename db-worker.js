@@ -41,14 +41,24 @@ self.onmessage = async function(e) {
       break;
 				
     case 'QUERY_VARIANTS':
+      // Detectar si la columna stock existe
+      let hasStockColumn = false;
+      try {
+        const tableInfo = db.exec("PRAGMA table_info(variants)");
+        if (tableInfo[0] && tableInfo[0].values) {
+          hasStockColumn = tableInfo[0].values.some(row => row[1] === 'stock');
+        }
+      } catch (e) {
+        hasStockColumn = false;
+      }
+      
+      // Query condicional basado en si existe la columna stock
+      const selectClause = hasStockColumn ? 
+        `SELECT v.id, v.url, v.sku, v.variant_label, v.variant_value, v.stock, p.title` :
+        `SELECT v.id, v.url, v.sku, v.variant_label, v.variant_value, NULL as stock, p.title`;
+      
       const variantsQuery = db.exec(`
-					SELECT 
-						v.id, 
-						v.url, 
-						v.sku, 
-						v.variant_label, 
-						v.variant_value, 
-						p.title
+					${selectClause}
 					FROM variants v
 					JOIN products p ON v.product_id = p.id
 				`);
@@ -97,7 +107,8 @@ self.onmessage = async function(e) {
             sku: row[2],
             label: row[3],
             value: row[4],
-            title: row[5],
+            stock: row[5],
+            title: row[6],
             currentPrice: priceData.price || null,
             currency: priceData.currency || null,
             lastScraped: priceData.scraped_at || null

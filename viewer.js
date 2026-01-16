@@ -5,7 +5,6 @@ let displayedVariants = [];
 let filteredVariants = []; // Para paginación
 const VARIANTS_PER_PAGE = 10;
 let currentPage = 0;
-let displayedVariants = [];
 let isAutoScrollEnabled = false;
 let isLoadingMore = false;
 
@@ -531,39 +530,6 @@ function toggleAutoScroll() {
   } else {
     removeScrollListener();
     console.log('[viewer] ⏹️ Scroll infinito desactivado');
-  }
-}
-
-// Variables para el scroll listener
-let scrollListener = null;
-
-// Configurar listener de scroll infinito
-function setupScrollListener() {
-  if (scrollListener) removeScrollListener();
-  
-  scrollListener = function() {
-    // Verificar si estamos cerca del final de la página
-    const scrollPosition = window.innerHeight + window.scrollY;
-    const documentHeight = document.documentElement.offsetHeight;
-    const threshold = 300; // Cargar cuando estemos a 300px del final
-    
-    if (scrollPosition >= documentHeight - threshold && 
-        !isLoadingMore && 
-        displayedVariants.length < filteredVariants.length) {
-      
-      console.log('[viewer] 🔄 Cargando más productos automáticamente...');
-      loadMoreProducts();
-    }
-  };
-  
-  window.addEventListener('scroll', scrollListener, { passive: true });
-}
-
-// Remover listener de scroll
-function removeScrollListener() {
-  if (scrollListener) {
-    window.removeEventListener('scroll', scrollListener);
-    scrollListener = null;
   }
 }
 
