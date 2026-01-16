@@ -5,6 +5,9 @@ let displayedVariants = [];
 let filteredVariants = []; // Para paginación
 const VARIANTS_PER_PAGE = 10;
 let currentPage = 0;
+let displayedVariants = [];
+let isAutoScrollEnabled = false;
+let isLoadingMore = false;
 
 async function loadDatabase() {
   try {
@@ -183,6 +186,8 @@ function handleWorkerMessage(e) {
       
       document.getElementById('searchInput').addEventListener('input', handleSearch);
       document.getElementById('sortSelect').addEventListener('change', handleSearch);
+      document.getElementById('stockFilter').addEventListener('change', handleSearch);
+      document.getElementById('autoScroll').addEventListener('change', toggleAutoScroll);
       document.getElementById('loadMoreBtn').addEventListener('click', loadMoreProducts);
       updatePagination(); // Configurar paginación inicial
       
@@ -333,7 +338,14 @@ function updatePagination() {
 }
 
 function loadMoreProducts() {
+  if (isLoadingMore) return; // Evitar múltiples cargas simultáneas
   if (currentPage * VARIANTS_PER_PAGE >= filteredVariants.length) return;
+  
+  isLoadingMore = true;
+  const button = document.getElementById('loadMoreBtn');
+  const originalText = button.textContent;
+  button.textContent = 'Cargando...';
+  button.disabled = true;
   
   currentPage++;
   const startIndex = currentPage * VARIANTS_PER_PAGE;
@@ -341,6 +353,11 @@ function loadMoreProducts() {
   const moreVariants = filteredVariants.slice(startIndex, endIndex);
   
   displayVariants(moreVariants, true); // append = true
+  
+  button.textContent = originalText;
+  button.disabled = false;
+  isLoadingMore = false;
+  
   updatePagination(); // Actualizar paginación después de cargar más
 }
 
@@ -367,9 +384,11 @@ function updateResultsCount(count) {
 function handleSearch(event) {
   const searchInput = document.getElementById('searchInput');
   const sortSelect = document.getElementById('sortSelect');
+  const stockFilter = document.getElementById('stockFilter');
   
   const searchTerm = searchInput.value.toLowerCase();
   const sortOption = sortSelect.value;
+  const onlyWithStock = stockFilter ? stockFilter.checked : false;
   
   // Resetear paginación
   currentPage = 0;
@@ -397,6 +416,13 @@ function handleSearch(event) {
     });
   }
   
+  // Filtrar por stock si está activado
+  if (onlyWithStock) {
+    filteredVariants = filteredVariants.filter(variant => {
+      return variant.stock && variant.stock > 0;
+    });
+  }
+  
   // Aplicar sorting
   switch(sortOption) {
   case 'price-asc':
@@ -419,6 +445,53 @@ function handleSearch(event) {
   
   // Actualizar paginación después de búsqueda
   updatePagination();
+}
+
+// Función para activar/desactivar scroll infinito
+function toggleAutoScroll() {
+  const autoScrollCheckbox = document.getElementById('autoScroll');
+  isAutoScrollEnabled = autoScrollCheckbox.checked;
+  
+  if (isAutoScrollEnabled) {
+    setupScrollListener();
+    console.log('[viewer] 🔄 Scroll infinito activado');
+  } else {
+    removeScrollListener();
+    console.log('[viewer] ⏹️ Scroll infinito desactivado');
+  }
+}
+
+// Variables para el scroll listener
+let scrollListener = null;
+
+// Configurar listener de scroll infinito
+function setupScrollListener() {
+  if (scrollListener) removeScrollListener();
+  
+  scrollListener = function() {
+    // Verificar si estamos cerca del final de la página
+    const scrollPosition = window.innerHeight + window.scrollY;
+    const documentHeight = document.documentElement.offsetHeight;
+    const threshold = 300; // Cargar cuando estemos a 300px del final
+    
+    if (scrollPosition >= documentHeight - threshold && 
+        !isLoadingMore && 
+        displayedVariants.length < filteredVariants.length) {
+      
+      console.log('[viewer] 🔄 Cargando más productos automáticamente...');
+      loadMoreProducts();
+    }
+  };
+  
+  window.addEventListener('scroll', scrollListener, { passive: true });
+}
+
+// Remover listener de scroll
+function removeScrollListener() {
+  if (scrollListener) {
+    window.removeEventListener('scroll', scrollListener);
+    scrollListener = null;
+  }
 }
 
 function showError(message) {
@@ -445,6 +518,53 @@ function escapeHtml(text) {
   const div = document.createElement('div');
   div.textContent = text;
   return div.innerHTML;
+}
+
+// Función para activar/desactivar scroll infinito
+function toggleAutoScroll() {
+  const autoScrollCheckbox = document.getElementById('autoScroll');
+  isAutoScrollEnabled = autoScrollCheckbox.checked;
+  
+  if (isAutoScrollEnabled) {
+    setupScrollListener();
+    console.log('[viewer] 🔄 Scroll infinito activado');
+  } else {
+    removeScrollListener();
+    console.log('[viewer] ⏹️ Scroll infinito desactivado');
+  }
+}
+
+// Variables para el scroll listener
+let scrollListener = null;
+
+// Configurar listener de scroll infinito
+function setupScrollListener() {
+  if (scrollListener) removeScrollListener();
+  
+  scrollListener = function() {
+    // Verificar si estamos cerca del final de la página
+    const scrollPosition = window.innerHeight + window.scrollY;
+    const documentHeight = document.documentElement.offsetHeight;
+    const threshold = 300; // Cargar cuando estemos a 300px del final
+    
+    if (scrollPosition >= documentHeight - threshold && 
+        !isLoadingMore && 
+        displayedVariants.length < filteredVariants.length) {
+      
+      console.log('[viewer] 🔄 Cargando más productos automáticamente...');
+      loadMoreProducts();
+    }
+  };
+  
+  window.addEventListener('scroll', scrollListener, { passive: true });
+}
+
+// Remover listener de scroll
+function removeScrollListener() {
+  if (scrollListener) {
+    window.removeEventListener('scroll', scrollListener);
+    scrollListener = null;
+  }
 }
 
 loadDatabase();
