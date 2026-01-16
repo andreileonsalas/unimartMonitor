@@ -374,11 +374,24 @@ function handleSearch(event) {
   if (!searchTerm) {
     filteredVariants = [...allVariants]; // Usar todos los productos si no hay búsqueda
   } else {
-    filteredVariants = allVariants.filter(variant => 
-      variant.title.toLowerCase().includes(searchTerm) ||
-      variant.url.toLowerCase().includes(searchTerm) ||
-      (variant.sku && variant.sku.toLowerCase().includes(searchTerm))
-    );
+    // 🔍 BÚSQUEDA MEJORADA: Dividir en palabras para buscar cada término
+    const searchWords = searchTerm.split(' ').filter(word => word.trim().length > 0);
+    
+    filteredVariants = allVariants.filter(variant => {
+      const title = variant.title.toLowerCase();
+      const url = variant.url.toLowerCase(); 
+      const sku = variant.sku ? variant.sku.toLowerCase() : '';
+      
+      // Para SKU y URL: búsqueda exacta (como antes)
+      const exactMatch = title.includes(searchTerm) || 
+                        url.includes(searchTerm) || 
+                        sku.includes(searchTerm);
+      
+      // Para título: búsqueda por palabras (NUEVO)
+      const wordsMatch = searchWords.every(word => title.includes(word));
+      
+      return exactMatch || wordsMatch;
+    });
   }
   
   // Aplicar sorting
