@@ -21,7 +21,14 @@ function findSegmentDatabases() {
 
 function initMergedDatabase() {
   const dbPath = path.join(__dirname, 'prices.db');
+  const dbExists = fs.existsSync(dbPath);
   const db = new Database(dbPath);
+  
+  if (!dbExists) {
+    console.log('📄 Creando nueva base de datos...');
+  } else {
+    console.log('📄 Usando base de datos existente (preservando datos)...');
+  }
   
   // Crear tablas si no existen (misma estructura que scraper.js)
   db.exec(`
