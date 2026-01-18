@@ -131,6 +131,13 @@ function initDatabase() {
 		db.exec('ALTER TABLE variants ADD COLUMN shopify_gid TEXT');
 	} catch (e) {
 		// Columna ya existe, ignorar error
+	}
+	
+	// Agregar columna stock si no existe
+	try {
+		db.exec('ALTER TABLE variants ADD COLUMN stock INTEGER');
+	} catch (e) {
+		// Columna ya existe, ignorar error
 	}  try {
     db.exec('ALTER TABLE products ADD COLUMN status TEXT DEFAULT \'active\'');
   } catch {
@@ -557,12 +564,12 @@ async function scrapeAndSave(db, url) {
           log.debug(`          🆔 gid: "${v.gid || 'NULL'}"`);
           
           const insertVariant = db.prepare(`
-						INSERT INTO variants (product_id, url, sku, variant_label, variant_value, shopify_gid)
-						VALUES (?, ?, ?, ?, ?, ?)
-					`);
+					INSERT INTO variants (product_id, url, sku, variant_label, variant_value, shopify_gid, stock)
+					VALUES (?, ?, ?, ?, ?, ?, ?)
+				`);
           
           try {
-            const result = insertVariant.run(product.id, variantUrl, skuFromVariant, detected.label, v.title, v.gid);
+            const result = insertVariant.run(product.id, variantUrl, skuFromVariant, detected.label, v.title, v.gid, v.stock || null);
             log.debug(`       ✅ INSERTADA con ID: ${result.lastInsertRowid}`);
           } catch (insertError) {
             log.error(`ERROR EN INSERCIÓN: ${insertError.message}`);
@@ -633,8 +640,8 @@ async function scrapeAndSave(db, url) {
         if (!baseVariant) {
           const skuFromHTML = await extractSKUFromHTML(url);
           const insertVariant = db.prepare(`
-            INSERT INTO variants (product_id, url, sku, variant_label, variant_value, shopify_gid)
-            VALUES (?, ?, ?, NULL, NULL, NULL)
+            INSERT INTO variants (product_id, url, sku, variant_label, variant_value, shopify_gid, stock)
+            VALUES (?, ?, ?, NULL, NULL, NULL, NULL)
           `);
           const result = insertVariant.run(product.id, url, skuFromHTML);
           baseVariant = { id: result.lastInsertRowid };
