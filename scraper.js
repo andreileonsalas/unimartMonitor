@@ -11,6 +11,7 @@ const path = require('path');
 const log = {
   debug: (msg) => { if (process.argv.includes('--debug')) console.log(msg); },
   info: (msg) => console.log(msg),
+  warn: (msg) => console.warn(msg),
   error: (msg) => console.error(msg)
 };
 
