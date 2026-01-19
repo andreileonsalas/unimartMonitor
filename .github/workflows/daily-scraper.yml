@@ -10,8 +10,8 @@ jobs:
   daily-scrape:
     runs-on: ubuntu-latest
     strategy:
-      matrix:
-        segment: [1, 2]
+      matrix: #8
+        segment: [1, 2, 3, 4, 5, 6, 7, 8]
     permissions:
       contents: write  # Required to commit and push database changes
     
@@ -42,7 +42,7 @@ jobs:
         run: node optimize_db.js
       
       - name: Run scraper (daily mode - segment ${{ matrix.segment }})
-        run: node scraper.js --mode=daily --segments=2 --segment=${{ matrix.segment }}
+        run: node scraper.js --mode=daily --segments=8 --segment=${{ matrix.segment }}
       
       - name: Upload segment database
         uses: actions/upload-artifact@v4

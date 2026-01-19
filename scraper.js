@@ -557,14 +557,18 @@ async function scrapeAndSave(db, url) {
             log.error(`ERROR EN INSERCIÓN: ${insertError.message}`);
             return { success: false, variant: v.title, reason: 'insert_error', error: insertError.message };
           }
-        } else if (exists.sku === null && skuFromVariant) {
-          // UPDATE: Actualizar SKU si está NULL
-          log.debug(`       ✏️  ACTUALIZANDO SKU: NULL → "${skuFromVariant}"`);
-          const updateSku = db.prepare('UPDATE variants SET sku = ? WHERE id = ?');
-          updateSku.run(skuFromVariant, exists.id);
-          log.debug(`       ✅ SKU actualizado exitosamente`);
         } else {
-          log.debug(`       ⏭️  Sin cambios necesarios (SKU ya existe: "${exists.sku}")`);
+          // UPDATE: Actualizar SKU si está NULL
+          if (exists.sku === null && skuFromVariant) {
+            log.debug(`       ✏️  ACTUALIZANDO SKU: NULL → "${skuFromVariant}"`);
+            const updateSku = db.prepare('UPDATE variants SET sku = ? WHERE id = ?');
+            updateSku.run(skuFromVariant, exists.id);
+            log.debug(`       ✅ SKU actualizado exitosamente`);
+          }
+          // UPDATE: Actualizar stock siempre
+          const updateStock = db.prepare('UPDATE variants SET stock = ? WHERE id = ?');
+          updateStock.run(typeof v.stock !== 'undefined' ? v.stock : null, exists.id);
+          log.debug(`       ✅ Stock actualizado a: ${v.stock}`);
         }
         
         // ✅ Guardar precio
