@@ -7,32 +7,11 @@ const xml2js = require('xml2js');
 const Database = require('better-sqlite3');
 const path = require('path');
 
-// ============================================================================
-// SISTEMA DE LOGGING
-// ============================================================================
-
-// Variable para controlar logs de debugging
-const DEBUG = process.env.DEBUG === 'true' || process.argv.includes('--debug');
-
-// Función logger con diferentes niveles
+// Sistema de logging simple
 const log = {
-  debug: (...args) => {
-    if (DEBUG) {
-      console.log('🐛 [DEBUG]', ...args);
-    }
-  },
-  info: (...args) => {
-    console.log('ℹ️  [INFO]', ...args);
-  },
-  warn: (...args) => {
-    console.log('⚠️  [WARN]', ...args);
-  },
-  error: (...args) => {
-    console.error('❌ [ERROR]', ...args);
-  },
-  success: (...args) => {
-    console.log('✅ [SUCCESS]', ...args);
-  }
+  debug: (msg) => { if (process.argv.includes('--debug')) console.log(msg); },
+  info: (msg) => console.log(msg),
+  error: (msg) => console.error(msg)
 };
 
 // ============================================================================
@@ -84,9 +63,11 @@ async function waitForCooldown() {
 // 🔄 MODO DE OPERACIÓN:
 // --mode=daily: Scrapea solo productos existentes en DB (rápido, actualiza precios)
 // --mode=weekly: Scrapea sitemap completo (descubre nuevos productos + variantes)
+// --mode=test: Scrapea solo primeros sitemaps para pruebas rápidas
 const SCRAPE_MODE = (() => {
   if (process.argv.includes('--mode=daily')) return 'daily';
   if (process.argv.includes('--mode=weekly')) return 'weekly';
+  if (process.argv.includes('--mode=test')) return 'test';
   return 'weekly'; // default
 })();
 
@@ -705,12 +686,19 @@ async function main() {
     }
     
   } else {
-    // 📆 MODO WEEKLY: Descubrir nuevos productos del sitemap
-    log.info('📆 Modo Weekly: Descubriendo productos del sitemap\n');
+    // 📆 MODO WEEKLY/TEST: Descubrir nuevos productos del sitemap
+    const modeLabel = SCRAPE_MODE === 'test' ? 'Test (limitado)' : 'Weekly';
+    log.info(`📆 Modo ${modeLabel}: Descubriendo productos del sitemap\n`);
     
     // Descubre TODOS los sitemaps de productos
-    const productSitemaps = await fetchProductSitemaps();
+    let productSitemaps = await fetchProductSitemaps();
     console.log(`Encontrados ${productSitemaps.length} sitemaps de productos`);
+    
+    // 🧪 En modo test, solo usar primeros 5 sitemaps para pruebas rápidas
+    if (SCRAPE_MODE === 'test') {
+      productSitemaps = productSitemaps.slice(0, 5);
+      console.log(`🧪 Modo TEST: Limitando a ${productSitemaps.length} sitemaps para pruebas rápidas`);
+    }
     
     // ⚡ Procesar sitemaps EN PARALELO (15 simultáneos)
     let urls = [];
