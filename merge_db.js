@@ -22,13 +22,18 @@ function findSegmentDatabases() {
 function initMergedDatabase() {
   const dbPath = path.join(__dirname, 'prices.db');
   const dbExists = fs.existsSync(dbPath);
-  const db = new Database(dbPath);
   
-  if (!dbExists) {
-    console.log('📄 Creando nueva base de datos...');
+  if (dbExists) {
+    console.log('📄 Preservando base de datos existente (modo incremental)...');
+    // Hacer backup por seguridad
+    const backupPath = path.join(__dirname, `prices.backup.${Date.now()}.db`);
+    fs.copyFileSync(dbPath, backupPath);
+    console.log(`💾 Backup creado: ${path.basename(backupPath)}`);
   } else {
-    console.log('📄 Usando base de datos existente (preservando datos)...');
+    console.log('📄 Creando nueva base de datos...');
   }
+  
+  const db = new Database(dbPath);
   
   // Crear tablas si no existen (misma estructura que scraper.js)
   db.exec(`
@@ -200,6 +205,18 @@ async function main() {
   // Inicializar base de datos principal
   const mainDb = initMergedDatabase();
   
+  // Contar datos existentes ANTES del merge
+  const existingProducts = mainDb.prepare('SELECT COUNT(*) as count FROM products').get().count;
+  const existingVariants = mainDb.prepare('SELECT COUNT(*) as count FROM variants').get().count;  
+  const existingPrices = mainDb.prepare('SELECT COUNT(*) as count FROM prices').get().count;
+  
+  if (existingProducts > 0) {
+    console.log(`📊 Datos existentes ANTES del merge:`);
+    console.log(`   Productos: ${existingProducts.toLocaleString()}`);
+    console.log(`   Variantes: ${existingVariants.toLocaleString()}`);
+    console.log(`   Precios: ${existingPrices.toLocaleString()}\n`);
+  }
+  
   // Merge cada segmento
   let totalStats = { products: 0, variants: 0, prices: 0 };
   
@@ -219,9 +236,26 @@ async function main() {
   const finalPrices = mainDb.prepare('SELECT COUNT(*) as count FROM prices').get().count;
   
   console.log(`📊 Total en prices.db:`);
-  console.log(`   Productos: ${finalProducts}`);
-  console.log(`   Variantes: ${finalVariants}`);
-  console.log(`   Precios: ${finalPrices}`);
+  console.log(`   Productos: ${finalProducts.toLocaleString()}`);
+  console.log(`   Variantes: ${finalVariants.toLocaleString()}`);
+  console.log(`   Precios: ${finalPrices.toLocaleString()}`);
+  
+  // Mostrar incremento si había datos existentes
+  if (existingProducts > 0) {
+    const productIncrement = finalProducts - existingProducts;
+    const variantIncrement = finalVariants - existingVariants;
+    const priceIncrement = finalPrices - existingPrices;
+    
+    console.log(`\n📈 Incremento en este merge:`);
+    console.log(`   +${productIncrement.toLocaleString()} productos`);
+    console.log(`   +${variantIncrement.toLocaleString()} variantes`);
+    console.log(`   +${priceIncrement.toLocaleString()} precios`);
+    
+    if (priceIncrement < 0) {
+      console.log(`\n⚠️  ADVERTENCIA: Pérdida de ${Math.abs(priceIncrement).toLocaleString()} precios detectada!`);
+      console.log(`   Esto puede indicar un problema en la segmentación o merge.`);
+    }
+  }
   
   const dbSizeMB = (fs.statSync(path.join(__dirname, 'prices.db')).size / (1024*1024)).toFixed(1);
   console.log(`   Tamaño: ${dbSizeMB} MB`);
@@ -238,6 +272,24 @@ async function main() {
       deletedFiles++;
     } catch (e) {
       console.log(`   ❌ Error eliminando ${segmentInfo.file}: ${e.message}`);
+    }
+  }
+  
+  // Limpiar backups antiguos (mantener solo los 3 más recientes)
+  const backupFiles = fs.readdirSync(__dirname)
+    .filter(file => file.startsWith('prices.backup.') && file.endsWith('.db'))
+    .sort()
+    .reverse();
+    
+  if (backupFiles.length > 3) {
+    console.log(`\\n🧹 Limpiando backups antiguos...`);
+    for (let i = 3; i < backupFiles.length; i++) {
+      try {
+        fs.unlinkSync(path.join(__dirname, backupFiles[i]));
+        console.log(`   ✓ Backup antiguo eliminado: ${backupFiles[i]}`);
+      } catch (e) {
+        // Ignorar errores de limpieza
+      }
     }
   }
   

@@ -348,6 +348,164 @@ try {
 console.log('');
 
 // ============================================================================
+// TEST 6: Segmentation & Merge Data Integrity (Using Real merge_db.js)
+// ============================================================================
+console.log('🔄 Test 6: Segmentation & Merge (Data Preservation)');
+console.log('-'.repeat(70));
+
+try {
+  const fs = require('fs');
+  const path = require('path');
+  
+  // Cleanup any existing test files
+  ['prices.db', 'prices-1.db', 'prices-2.db'].forEach(file => {
+    if (fs.existsSync(file)) fs.unlinkSync(file);
+  });
+
+  // 1. Create main database with existing data (simulates current production DB)
+  const mainDb = new Database('prices.db');
+  mainDb.exec(`
+    CREATE TABLE products (id INTEGER PRIMARY KEY, url_base TEXT UNIQUE, title TEXT, status TEXT DEFAULT 'active', last_check DATETIME);
+    CREATE TABLE variants (id INTEGER PRIMARY KEY, product_id INTEGER, url TEXT UNIQUE, sku TEXT, variant_label TEXT, variant_value TEXT, shopify_gid TEXT, FOREIGN KEY (product_id) REFERENCES products(id));
+    CREATE TABLE prices (id INTEGER PRIMARY KEY, variant_id INTEGER, price REAL, currency TEXT, scraped_at DATETIME DEFAULT CURRENT_TIMESTAMP, FOREIGN KEY (variant_id) REFERENCES variants(id));
+  `);
+  
+  // Insert existing data (50 products with ~150 prices total)
+  for (let i = 1; i <= 50; i++) {
+    mainDb.prepare('INSERT INTO products VALUES (?, ?, ?, ?, ?)').run(i, `existing${i}`, `Existing Product ${i}`, 'active', '2026-01-18');
+    mainDb.prepare('INSERT INTO variants VALUES (?, ?, ?, ?, ?, ?, ?)').run(i, i, `existing${i}`, `SKU${i}`, null, null, null);
+    
+    // 2-4 historical prices per product
+    const priceCount = Math.floor(Math.random() * 3) + 2;
+    for (let p = 0; p < priceCount; p++) {
+      const priceId = (i-1) * 4 + p + 1;
+      mainDb.prepare('INSERT INTO prices VALUES (?, ?, ?, ?, ?)').run(priceId, i, 1000 + Math.random() * 1000, 'CRC', '2026-01-18');
+    }
+  }
+  
+  const initialProducts = mainDb.prepare('SELECT COUNT(*) as count FROM products').get().count;
+  const initialVariants = mainDb.prepare('SELECT COUNT(*) as count FROM variants').get().count;
+  const initialPrices = mainDb.prepare('SELECT COUNT(*) as count FROM prices').get().count;
+  
+  testLog(`Initial DB: ${initialProducts} products, ${initialVariants} variants, ${initialPrices} prices`);
+  mainDb.close();
+
+  // 2. Create segment databases (simulates parallel scraping results)
+  
+  // Segment 1: 5 new products
+  const seg1 = new Database('prices-1.db');
+  seg1.exec(`
+    CREATE TABLE products (id INTEGER PRIMARY KEY, url_base TEXT UNIQUE, title TEXT, status TEXT DEFAULT 'active', last_check DATETIME);
+    CREATE TABLE variants (id INTEGER PRIMARY KEY, product_id INTEGER, url TEXT UNIQUE, sku TEXT, variant_label TEXT, variant_value TEXT, shopify_gid TEXT);
+    CREATE TABLE prices (id INTEGER PRIMARY KEY, variant_id INTEGER, price REAL, currency TEXT, scraped_at DATETIME DEFAULT CURRENT_TIMESTAMP);
+  `);
+  
+  for (let i = 51; i <= 55; i++) {
+    seg1.prepare('INSERT INTO products VALUES (?, ?, ?, ?, ?)').run(i, `new${i}`, `New Product ${i}`, 'active', '2026-01-19');
+    seg1.prepare('INSERT INTO variants VALUES (?, ?, ?, ?, ?, ?, ?)').run(i, i, `new${i}`, `NEWSKU${i}`, null, null, null);
+    seg1.prepare('INSERT INTO prices VALUES (?, ?, ?, ?, ?)').run(i, i, 1500, 'CRC', '2026-01-19');
+  }
+  
+  const seg1Prices = seg1.prepare('SELECT COUNT(*) as count FROM prices').get().count;
+  seg1.close();
+  
+  // Segment 2: 3 new products
+  const seg2 = new Database('prices-2.db');
+  seg2.exec(`
+    CREATE TABLE products (id INTEGER PRIMARY KEY, url_base TEXT UNIQUE, title TEXT, status TEXT DEFAULT 'active', last_check DATETIME);
+    CREATE TABLE variants (id INTEGER PRIMARY KEY, product_id INTEGER, url TEXT UNIQUE, sku TEXT, variant_label TEXT, variant_value TEXT, shopify_gid TEXT);
+    CREATE TABLE prices (id INTEGER PRIMARY KEY, variant_id INTEGER, price REAL, currency TEXT, scraped_at DATETIME DEFAULT CURRENT_TIMESTAMP);
+  `);
+  
+  for (let i = 56; i <= 58; i++) {
+    seg2.prepare('INSERT INTO products VALUES (?, ?, ?, ?, ?)').run(i, `newer${i}`, `Newer Product ${i}`, 'active', '2026-01-19');
+    seg2.prepare('INSERT INTO variants VALUES (?, ?, ?, ?, ?, ?, ?)').run(i, i, `newer${i}`, `NEWERSKU${i}`, null, null, null);
+    seg2.prepare('INSERT INTO prices VALUES (?, ?, ?, ?, ?)').run(i, i, 2000, 'CRC', '2026-01-19');
+  }
+  
+  const seg2Prices = seg2.prepare('SELECT COUNT(*) as count FROM prices').get().count;
+  seg2.close();
+
+  testLog(`Created segments: +${seg1Prices} prices (seg1), +${seg2Prices} prices (seg2)`);
+
+  // 3. Execute real merge using merge_db.js module
+  testLog('Executing real merge using merge_db.js...');
+  
+  const { mergeDatabase, findSegmentDatabases } = require('./merge_db.js');
+  
+  // Temporarily silence console.log during merge
+  const originalLog = console.log;
+  console.log = () => {};
+  
+  try {
+    const segmentDbs = findSegmentDatabases();
+    const mergeDb = new Database('prices.db');
+    
+    // Use real merge function for each segment
+    for (const segmentInfo of segmentDbs) {
+      const segmentPath = path.join(__dirname, segmentInfo.file);
+      mergeDatabase(mergeDb, segmentPath, segmentInfo.segment);
+    }
+    
+    mergeDb.close();
+    
+    // Clean up segment files (like real workflow does)
+    segmentDbs.forEach(seg => {
+      if (fs.existsSync(seg.file)) fs.unlinkSync(seg.file);
+    });
+    
+  } finally {
+    console.log = originalLog; // Restore console.log
+  }
+
+  // 4. Verify merge results
+  const finalDb = new Database('prices.db');
+  const finalProducts = finalDb.prepare('SELECT COUNT(*) as count FROM products').get().count;
+  const finalVariants = finalDb.prepare('SELECT COUNT(*) as count FROM variants').get().count;
+  const finalPrices = finalDb.prepare('SELECT COUNT(*) as count FROM prices').get().count;
+  finalDb.close();
+  
+  const expectedProducts = initialProducts + 8; // +5 from seg1, +3 from seg2
+  const expectedMinPrices = initialPrices + seg1Prices + seg2Prices;
+  
+  testLog(`Final result: ${finalProducts} products, ${finalVariants} variants, ${finalPrices} prices`);
+  
+  // Critical validations (prevent data loss like reported issue)
+  if (finalPrices >= initialPrices) {
+    testLog('✓ Existing prices preserved (no data loss)');
+    testsPass++;
+  } else {
+    testLog(`❌ CRITICAL: Price data loss detected! (${initialPrices} → ${finalPrices})`);
+    testsFail++;
+  }
+  
+  if (finalProducts >= expectedProducts) {
+    testLog('✓ New products added successfully');
+    testsPass++;
+  } else {
+    testLog(`❌ Product addition failed (expected ${expectedProducts}, got ${finalProducts})`);
+    testsFail++;
+  }
+  
+  if (finalPrices >= expectedMinPrices) {
+    testLog('✓ New prices added successfully');
+    testsPass++;
+  } else {
+    testLog(`❌ Price addition incomplete (expected ≥${expectedMinPrices}, got ${finalPrices})`);
+    testsFail++;
+  }
+  
+  // Clean up test database
+  if (fs.existsSync('prices.db')) fs.unlinkSync('prices.db');
+
+} catch (error) {
+  testLog(`❌ Merge test failed: ${error.message}`);
+  testsFail++;
+}
+
+console.log('');
+
+// ============================================================================
 // SUMMARY
 // ============================================================================
 console.log('='.repeat(70));
