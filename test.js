@@ -108,6 +108,7 @@ try {
       sku TEXT,
       variant_label TEXT,
       variant_value TEXT,
+      stock INTEGER,
       FOREIGN KEY (product_id) REFERENCES products(id)
     );
     
@@ -140,7 +141,7 @@ try {
   // Test cascade: insert product → variant → price
   db.exec(`
     INSERT INTO products (url_base, name) VALUES ('test-product', 'Test Product');
-    INSERT INTO variants (product_id, url, sku) VALUES (1, 'test-url', 'TEST-SKU');
+    INSERT INTO variants (product_id, url, sku, stock) VALUES (1, 'test-url', 'TEST-SKU', NULL);
     INSERT INTO prices (variant_id, price) VALUES (1, 9999);
   `);
   
@@ -243,6 +244,7 @@ try {
       sku TEXT,
       variant_label TEXT,
       variant_value TEXT,
+      stock INTEGER,
       FOREIGN KEY (product_id) REFERENCES products(id)
     );
     
@@ -260,10 +262,10 @@ try {
   db.exec(`INSERT INTO products (url_base, name) VALUES ('tshirt-product', 'T-Shirt Base')`);
   
   db.exec(`
-    INSERT INTO variants (product_id, url, sku, variant_label, variant_value) VALUES
-      (1, 'tshirt-red', 'TSHIRT-RED', 'Color', 'Rojo'),
-      (1, 'tshirt-blue', 'TSHIRT-BLUE', 'Color', 'Azul'),
-      (1, 'tshirt-green', 'TSHIRT-GREEN', 'Color', 'Verde');
+    INSERT INTO variants (product_id, url, sku, variant_label, variant_value, stock) VALUES
+      (1, 'tshirt-red', 'TSHIRT-RED', 'Color', 'Rojo', NULL),
+      (1, 'tshirt-blue', 'TSHIRT-BLUE', 'Color', 'Azul', NULL),
+      (1, 'tshirt-green', 'TSHIRT-GREEN', 'Color', 'Verde', NULL);
   `)
   
   const variants = db.prepare('SELECT COUNT(*) as count FROM variants WHERE product_id = 1').get();
@@ -366,14 +368,14 @@ try {
   const mainDb = new Database('prices.db');
   mainDb.exec(`
     CREATE TABLE products (id INTEGER PRIMARY KEY, url_base TEXT UNIQUE, title TEXT, status TEXT DEFAULT 'active', last_check DATETIME);
-    CREATE TABLE variants (id INTEGER PRIMARY KEY, product_id INTEGER, url TEXT UNIQUE, sku TEXT, variant_label TEXT, variant_value TEXT, shopify_gid TEXT, FOREIGN KEY (product_id) REFERENCES products(id));
+    CREATE TABLE variants (id INTEGER PRIMARY KEY, product_id INTEGER, url TEXT UNIQUE, sku TEXT, variant_label TEXT, variant_value TEXT, shopify_gid TEXT, stock INTEGER, FOREIGN KEY (product_id) REFERENCES products(id));
     CREATE TABLE prices (id INTEGER PRIMARY KEY, variant_id INTEGER, price REAL, currency TEXT, scraped_at DATETIME DEFAULT CURRENT_TIMESTAMP, FOREIGN KEY (variant_id) REFERENCES variants(id));
   `);
   
   // Insert existing data (50 products with ~150 prices total)
   for (let i = 1; i <= 50; i++) {
     mainDb.prepare('INSERT INTO products VALUES (?, ?, ?, ?, ?)').run(i, `existing${i}`, `Existing Product ${i}`, 'active', '2026-01-18');
-    mainDb.prepare('INSERT INTO variants VALUES (?, ?, ?, ?, ?, ?, ?)').run(i, i, `existing${i}`, `SKU${i}`, null, null, null);
+    mainDb.prepare('INSERT INTO variants VALUES (?, ?, ?, ?, ?, ?, ?, ?)').run(i, i, `existing${i}`, `SKU${i}`, null, null, null, null);
     
     // 2-4 historical prices per product
     const priceCount = Math.floor(Math.random() * 3) + 2;
@@ -396,13 +398,13 @@ try {
   const seg1 = new Database('prices-1.db');
   seg1.exec(`
     CREATE TABLE products (id INTEGER PRIMARY KEY, url_base TEXT UNIQUE, title TEXT, status TEXT DEFAULT 'active', last_check DATETIME);
-    CREATE TABLE variants (id INTEGER PRIMARY KEY, product_id INTEGER, url TEXT UNIQUE, sku TEXT, variant_label TEXT, variant_value TEXT, shopify_gid TEXT);
+    CREATE TABLE variants (id INTEGER PRIMARY KEY, product_id INTEGER, url TEXT UNIQUE, sku TEXT, variant_label TEXT, variant_value TEXT, shopify_gid TEXT, stock INTEGER);
     CREATE TABLE prices (id INTEGER PRIMARY KEY, variant_id INTEGER, price REAL, currency TEXT, scraped_at DATETIME DEFAULT CURRENT_TIMESTAMP);
   `);
   
   for (let i = 51; i <= 55; i++) {
     seg1.prepare('INSERT INTO products VALUES (?, ?, ?, ?, ?)').run(i, `new${i}`, `New Product ${i}`, 'active', '2026-01-19');
-    seg1.prepare('INSERT INTO variants VALUES (?, ?, ?, ?, ?, ?, ?)').run(i, i, `new${i}`, `NEWSKU${i}`, null, null, null);
+    seg1.prepare('INSERT INTO variants VALUES (?, ?, ?, ?, ?, ?, ?, ?)').run(i, i, `new${i}`, `NEWSKU${i}`, null, null, null, null);
     seg1.prepare('INSERT INTO prices VALUES (?, ?, ?, ?, ?)').run(i, i, 1500, 'CRC', '2026-01-19');
   }
   
@@ -413,13 +415,13 @@ try {
   const seg2 = new Database('prices-2.db');
   seg2.exec(`
     CREATE TABLE products (id INTEGER PRIMARY KEY, url_base TEXT UNIQUE, title TEXT, status TEXT DEFAULT 'active', last_check DATETIME);
-    CREATE TABLE variants (id INTEGER PRIMARY KEY, product_id INTEGER, url TEXT UNIQUE, sku TEXT, variant_label TEXT, variant_value TEXT, shopify_gid TEXT);
+    CREATE TABLE variants (id INTEGER PRIMARY KEY, product_id INTEGER, url TEXT UNIQUE, sku TEXT, variant_label TEXT, variant_value TEXT, shopify_gid TEXT, stock INTEGER);
     CREATE TABLE prices (id INTEGER PRIMARY KEY, variant_id INTEGER, price REAL, currency TEXT, scraped_at DATETIME DEFAULT CURRENT_TIMESTAMP);
   `);
   
   for (let i = 56; i <= 58; i++) {
     seg2.prepare('INSERT INTO products VALUES (?, ?, ?, ?, ?)').run(i, `newer${i}`, `Newer Product ${i}`, 'active', '2026-01-19');
-    seg2.prepare('INSERT INTO variants VALUES (?, ?, ?, ?, ?, ?, ?)').run(i, i, `newer${i}`, `NEWERSKU${i}`, null, null, null);
+    seg2.prepare('INSERT INTO variants VALUES (?, ?, ?, ?, ?, ?, ?, ?)').run(i, i, `newer${i}`, `NEWERSKU${i}`, null, null, null, null);
     seg2.prepare('INSERT INTO prices VALUES (?, ?, ?, ?, ?)').run(i, i, 2000, 'CRC', '2026-01-19');
   }
   

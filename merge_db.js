@@ -52,6 +52,7 @@ function initMergedDatabase() {
       variant_label TEXT,
       variant_value TEXT,
       shopify_gid TEXT,
+      stock INTEGER,
       FOREIGN KEY (product_id) REFERENCES products(id)
     );
     CREATE TABLE IF NOT EXISTS prices (
@@ -114,8 +115,8 @@ function mergeDatabase(mainDb, segmentDbPath, segmentNumber) {
       WHERE product_id = ? AND url = ?
     `);
     const insertVariant = mainDb.prepare(`
-      INSERT INTO variants (product_id, url, sku, variant_label, variant_value, shopify_gid)
-      VALUES (?, ?, ?, ?, ?, ?)
+      INSERT INTO variants (product_id, url, sku, variant_label, variant_value, shopify_gid, stock)
+      VALUES (?, ?, ?, ?, ?, ?, ?)
     `);
     const updateVariantSku = mainDb.prepare('UPDATE variants SET sku = ? WHERE id = ? AND sku IS NULL');
     
@@ -135,7 +136,8 @@ function mergeDatabase(mainDb, segmentDbPath, segmentNumber) {
           variant.sku,
           variant.variant_label,
           variant.variant_value,
-          variant.shopify_gid
+          variant.shopify_gid,
+          typeof variant.stock !== 'undefined' ? variant.stock : null
         );
         mergedStats.variants++;
       } else if (variant.sku && !existingVariant.sku) {
