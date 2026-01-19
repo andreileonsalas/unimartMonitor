@@ -77,6 +77,15 @@ jobs:
           pattern: prices-segment-*
           merge-multiple: true
       
+      - name: Decompress existing database
+        run: |
+          if [ -f prices.db.gz ]; then
+            gunzip -k prices.db.gz
+            echo "✓ Existing database decompressed for merge"
+          else
+            echo "⚠ No existing database found, starting fresh"
+          fi
+      
       - name: Merge segment databases
         run: node merge_db.js
       
