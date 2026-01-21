@@ -119,7 +119,8 @@ function mergeDatabase(mainDb, segmentDbPath, segmentNumber) {
       VALUES (?, ?, ?, ?, ?, ?, ?)
     `);
     const updateVariantSku = mainDb.prepare('UPDATE variants SET sku = ? WHERE id = ? AND sku IS NULL');
-    
+    const updateVariantStock = mainDb.prepare('UPDATE variants SET stock = ? WHERE id = ?');
+
     for (const variant of variants) {
       const mainProduct = findProduct.get(variant.url_base);
       if (!mainProduct) {
@@ -140,9 +141,16 @@ function mergeDatabase(mainDb, segmentDbPath, segmentNumber) {
           typeof variant.stock !== 'undefined' ? variant.stock : null
         );
         mergedStats.variants++;
-      } else if (variant.sku && !existingVariant.sku) {
-        // Actualizar SKU si está vacío
-        updateVariantSku.run(variant.sku, existingVariant.id);
+      } else {
+        // Actualizar campos para variante existente
+        if (variant.sku && !existingVariant.sku) {
+          updateVariantSku.run(variant.sku, existingVariant.id);
+        }
+        // Actualizar stock siempre
+        updateVariantStock.run(
+          typeof variant.stock !== 'undefined' ? variant.stock : null,
+          existingVariant.id
+        );
       }
     }
     
