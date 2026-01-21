@@ -240,16 +240,21 @@ function displayPriceHistory(variantId, history) {
   const avgPrice = (prices.reduce((a, b) => a + b, 0) / prices.length).toFixed(2);
   const currentPrice = prices[prices.length - 1];
 	
+
+  // Badge si el precio actual es igual al más bajo
+  const isLowest = currentPrice === minPrice;
+  const lowestBadge = isLowest ? '<span class="badge bg-success ms-2">¡Precio más bajo histórico!</span>' : '';
+
   chartContainer.innerHTML = `
-		<h3 style="margin-bottom: 1rem;">📊 Historial de Precios</h3>
-		<div class="price-stats">
-			<div class="price-stat-item"><div class="price-stat-label">Precio Actual</div><div class="price-stat-value">${currency} ${currentPrice.toFixed(2)}</div></div>
-			<div class="price-stat-item"><div class="price-stat-label">Precio Más Bajo</div><div class="price-stat-value lowest">${currency} ${minPrice.toFixed(2)}</div></div>
-			<div class="price-stat-item"><div class="price-stat-label">Precio Más Alto</div><div class="price-stat-value highest">${currency} ${maxPrice.toFixed(2)}</div></div>
-			<div class="price-stat-item"><div class="price-stat-label">Promedio</div><div class="price-stat-value">${currency} ${avgPrice}</div></div>
-		</div>
-		<div class="chart-wrapper"><canvas id="priceChart-${variantId}"></canvas></div>
-	`;
+    <h3 style="margin-bottom: 1rem;">📊 Historial de Precios</h3>
+    <div class="price-stats">
+      <div class="price-stat-item"><div class="price-stat-label">Precio Actual</div><div class="price-stat-value">${currency} ${currentPrice.toFixed(2)} ${lowestBadge}</div></div>
+      <div class="price-stat-item"><div class="price-stat-label">Precio Más Bajo</div><div class="price-stat-value lowest">${currency} ${minPrice.toFixed(2)}</div></div>
+      <div class="price-stat-item"><div class="price-stat-label">Precio Más Alto</div><div class="price-stat-value highest">${currency} ${maxPrice.toFixed(2)}</div></div>
+      <div class="price-stat-item"><div class="price-stat-label">Promedio</div><div class="price-stat-value">${currency} ${avgPrice}</div></div>
+    </div>
+    <div class="chart-wrapper"><canvas id="priceChart-${variantId}"></canvas></div>
+  `;
 	
   const ctx = document.getElementById(`priceChart-${variantId}`).getContext('2d');
   new Chart(ctx, {
@@ -284,27 +289,30 @@ function displayVariants(variants, append = false) {
     variantsList.innerHTML = '<div class="empty-state"><p>No variants found</p></div>';
     return;
   }
-	
+
   const variantsHtml = variants.map(variant => {
     let priceDisplay = 'Sin precio';
     if (typeof variant.currentPrice === 'number') {
       priceDisplay = `${variant.currency || ''} ${variant.currentPrice.toFixed(2)}`;
     }
-		
+    let lowestBadge = '';
+    if (typeof variant.currentPrice === 'number' && typeof variant.minPrice === 'number' && variant.currentPrice === variant.minPrice) {
+      lowestBadge = '<span class="badge bg-success ms-2">¡Precio más bajo histórico!</span>';
+    }
     return `
-			<div class="product-item product-card" onclick="toggleVariantDetails(${variant.id})">
-				<div class="product-title">${escapeHtml(variant.title)}</div>
-				${variant.sku ? `<div class="product-sku">SKU: ${escapeHtml(variant.sku)}</div>` : ''}
-				${variant.label ? `<div class="variant-label">${escapeHtml(variant.label)}: ${escapeHtml(variant.value)}</div>` : ''}
-				<div class="product-info">
-					<div class="current-price">${priceDisplay}</div>
-				</div>
-				<div class="product-url"><a href="${escapeHtml(variant.url)}" target="_blank" onclick="event.stopPropagation()" style="color: #667eea;">🔗 Ver variante</a></div>
-				<div id="chart-${variant.id}" class="chart-container price-history"></div>
-			</div>
-		`;
+      <div class="product-item product-card" onclick="toggleVariantDetails(${variant.id})">
+        <div class="product-title">${escapeHtml(variant.title)}</div>
+        ${variant.sku ? `<div class="product-sku">SKU: ${escapeHtml(variant.sku)}</div>` : ''}
+        ${variant.label ? `<div class="variant-label">${escapeHtml(variant.label)}: ${escapeHtml(variant.value)}</div>` : ''}
+        <div class="product-info">
+          <div class="current-price">${priceDisplay} ${lowestBadge}</div>
+        </div>
+        <div class="product-url"><a href="${escapeHtml(variant.url)}" target="_blank" onclick="event.stopPropagation()" style="color: #667eea;">🔗 Ver variante</a></div>
+        <div id="chart-${variant.id}" class="chart-container price-history"></div>
+      </div>
+    `;
   }).join('');
-	
+
   if (append) {
     variantsList.innerHTML += variantsHtml;
   } else {

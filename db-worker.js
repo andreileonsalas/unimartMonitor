@@ -93,14 +93,31 @@ self.onmessage = async function(e) {
         });
       }
 				
+      // Calcular el precio más bajo histórico para cada variante
+      const minPricesMap = {};
+      if (variantIds.length > 0) {
+        const minPricesQuery = db.exec(`
+          SELECT variant_id, MIN(price) as min_price
+          FROM prices
+          WHERE variant_id IN (${variantIds})
+          GROUP BY variant_id
+        `);
+        if (minPricesQuery.length > 0) {
+          minPricesQuery[0].values.forEach(row => {
+            minPricesMap[row[0]] = row[1];
+          });
+        }
+      }
+
       // Enviar resultados en chunks para no bloquear
       const CHUNK_SIZE = 5000;
       const variants = variantsQuery[0].values;
-				
+
       for (let i = 0; i < variants.length; i += CHUNK_SIZE) {
         const chunk = variants.slice(i, i + CHUNK_SIZE).map(row => {
           const variantId = row[0];
           const priceData = pricesMap[variantId] || {};
+          const minPrice = minPricesMap[variantId] || null;
           return {
             id: variantId,
             url: row[1],
@@ -111,10 +128,11 @@ self.onmessage = async function(e) {
             title: row[6],
             currentPrice: priceData.price || null,
             currency: priceData.currency || null,
-            lastScraped: priceData.scraped_at || null
+            lastScraped: priceData.scraped_at || null,
+            minPrice: minPrice
           };
         });
-					
+
         self.postMessage({
           type: 'VARIANTS_CHUNK',
           data: {
