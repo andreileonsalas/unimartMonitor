@@ -1,5 +1,0 @@
-# Manual URLs to scrape
-# Add one URL per line. Lines starting with # are comments.
-
-# Xiaomi Power Bank - Missing from sitemap
-https://www.unimart.com/products/xiaomi-power-bank-bateria-externa-alambrica-20000mah-t-pb2030mi

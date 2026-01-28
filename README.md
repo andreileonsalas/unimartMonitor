@@ -40,11 +40,10 @@ npm install
 # Scraping
 npm run scrape:daily          # Actualizar precios (rápido)
 npm run scrape:weekly         # Descubrir nuevos productos (completo)
-npm run scrape:manual         # URLs específicas desde manual-urls.txt
 
 # Manual scraping
 node scraper.js --mode=manual --url="https://www.unimart.com/products/..."
-node scraper.js --mode=manual --urls-file=my-urls.txt
+node scraper.js --mode=manual --urls-file=my-urls.txt  # Create file with URLs first
 
 # Tests
 npm test
