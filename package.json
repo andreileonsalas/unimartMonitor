@@ -21,6 +21,8 @@
     "optimize": "node optimize_db.js",
     "compact": "node optimize_db.js",
     "test": "node test.js",
+    "test:e2e": "node test-e2e-viewer.js",
+    "test:all": "npm test && npm run test:e2e",
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
     "prepare": "husky"
