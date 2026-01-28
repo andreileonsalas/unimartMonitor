@@ -65,11 +65,26 @@ async function waitForCooldown() {
 // --mode=daily: Scrapea solo productos existentes en DB (rápido, actualiza precios)
 // --mode=weekly: Scrapea sitemap completo (descubre nuevos productos + variantes)
 // --mode=test: Scrapea solo primeros sitemaps para pruebas rápidas
+// --mode=manual: Scrapea URLs específicas (--url o --urls-file)
 const SCRAPE_MODE = (() => {
   if (process.argv.includes('--mode=daily')) return 'daily';
   if (process.argv.includes('--mode=weekly')) return 'weekly';
   if (process.argv.includes('--mode=test')) return 'test';
+  if (process.argv.includes('--mode=manual')) return 'manual';
   return 'weekly'; // default
+})();
+
+// 🎯 MANUAL URL SCRAPING:
+// --url=https://... : Scrapea una sola URL
+// --urls-file=path/to/file.txt : Scrapea URLs desde un archivo (una por línea)
+const MANUAL_URL = (() => {
+  const urlArg = process.argv.find(arg => arg.startsWith('--url='));
+  return urlArg ? urlArg.split('=')[1] : null;
+})();
+
+const MANUAL_URLS_FILE = (() => {
+  const fileArg = process.argv.find(arg => arg.startsWith('--urls-file='));
+  return fileArg ? fileArg.split('=')[1] : null;
 })();
 
 function initDatabase() {
@@ -674,7 +689,44 @@ async function main() {
   
   let uniqueUrlBases = [];
   
-  if (SCRAPE_MODE === 'daily') {
+  if (SCRAPE_MODE === 'manual') {
+    // 🎯 MODO MANUAL: Scrapear URLs específicas proporcionadas por el usuario
+    log.info('🎯 Modo Manual: Scrapeando URLs específicas\n');
+    
+    if (MANUAL_URL) {
+      // Una sola URL desde --url=
+      uniqueUrlBases = [MANUAL_URL];
+      log.info(`📌 Scrapeando URL única: ${MANUAL_URL}\n`);
+    } else if (MANUAL_URLS_FILE) {
+      // Múltiples URLs desde archivo
+      const fs = require('fs');
+      if (!fs.existsSync(MANUAL_URLS_FILE)) {
+        log.error(`❌ Archivo no encontrado: ${MANUAL_URLS_FILE}`);
+        process.exit(1);
+      }
+      
+      const fileContent = fs.readFileSync(MANUAL_URLS_FILE, 'utf8');
+      const urls = fileContent
+        .split('\n')
+        .map(line => line.trim())
+        .filter(line => line.length > 0 && !line.startsWith('#'))
+        .filter(line => line.includes('unimart.com/products/'));
+      
+      uniqueUrlBases = [...new Set(urls)]; // Remove duplicates
+      log.info(`📄 Cargadas ${uniqueUrlBases.length} URLs desde ${MANUAL_URLS_FILE}\n`);
+      
+      if (uniqueUrlBases.length === 0) {
+        log.error('❌ No se encontraron URLs válidas en el archivo');
+        process.exit(1);
+      }
+    } else {
+      log.error('❌ Modo manual requiere --url= o --urls-file=');
+      log.error('   Ejemplo: node scraper.js --mode=manual --url=https://www.unimart.com/products/...');
+      log.error('   Ejemplo: node scraper.js --mode=manual --urls-file=urls.txt');
+      process.exit(1);
+    }
+    
+  } else if (SCRAPE_MODE === 'daily') {
     // 📅 MODO DAILY: Solo actualizar precios de productos activos (sin 404s)
     log.info('📅 Modo Daily: Actualizando precios de productos activos\n');
     

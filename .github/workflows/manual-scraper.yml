@@ -1,0 +1,112 @@
+name: Manual URL Scraper
+
+on:
+  workflow_dispatch:
+    inputs:
+      url:
+        description: 'Single product URL to scrape (e.g., https://www.unimart.com/products/...)'
+        required: false
+        type: string
+      urls:
+        description: 'Multiple URLs (one per line, will be saved to manual-urls.txt)'
+        required: false
+        type: string
+
+jobs:
+  manual-scrape:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Decompress database
+        run: |
+          if [ -f prices.db.gz ]; then
+            gunzip -c prices.db.gz > prices.db
+            echo "✅ Database decompressed"
+          else
+            echo "⚠️ No compressed database found - will create new one"
+          fi
+
+      - name: Optimize database before scraping
+        run: node optimize_db.js || echo "Database optimization skipped (first run)"
+
+      - name: Prepare URLs file (if multiple URLs provided)
+        if: ${{ github.event.inputs.urls != '' }}
+        run: |
+          echo "# Manual URLs added via GitHub Actions" > manual-urls.txt
+          echo "# Timestamp: $(date -u +"%Y-%m-%d %H:%M:%S UTC")" >> manual-urls.txt
+          echo "" >> manual-urls.txt
+          echo "${{ github.event.inputs.urls }}" >> manual-urls.txt
+          echo "✅ Created manual-urls.txt with URLs"
+          cat manual-urls.txt
+
+      - name: Scrape single URL
+        if: ${{ github.event.inputs.url != '' }}
+        run: |
+          echo "🎯 Scraping single URL: ${{ github.event.inputs.url }}"
+          node scraper.js --mode=manual --url="${{ github.event.inputs.url }}"
+
+      - name: Scrape multiple URLs from file
+        if: ${{ github.event.inputs.urls != '' }}
+        run: |
+          echo "📄 Scraping URLs from manual-urls.txt"
+          node scraper.js --mode=manual --urls-file=manual-urls.txt
+
+      - name: Optimize database after scraping
+        run: node optimize_db.js
+
+      - name: Compress database
+        run: node compress_db.js
+
+      - name: Commit and push changes
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          
+          # Add changes
+          git add prices.db.gz
+          
+          # Only commit if there are changes
+          if git diff --staged --quiet; then
+            echo "No changes to commit"
+          else
+            # Create commit message
+            if [ -n "${{ github.event.inputs.url }}" ]; then
+              COMMIT_MSG="Manual scrape: $(echo "${{ github.event.inputs.url }}" | sed 's/.*\/products\///')"
+            else
+              URL_COUNT=$(echo "${{ github.event.inputs.urls }}" | grep -c "unimart.com/products/" || echo "0")
+              COMMIT_MSG="Manual scrape: ${URL_COUNT} URLs"
+            fi
+            
+            git commit -m "🎯 ${COMMIT_MSG}"
+            git push
+            echo "✅ Changes committed and pushed"
+          fi
+
+      - name: Summary
+        run: |
+          echo "## Manual Scraping Complete 🎉" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          
+          if [ -n "${{ github.event.inputs.url }}" ]; then
+            echo "**URL Scraped:**" >> $GITHUB_STEP_SUMMARY
+            echo "- ${{ github.event.inputs.url }}" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "**URLs from file:** manual-urls.txt" >> $GITHUB_STEP_SUMMARY
+            URL_COUNT=$(echo "${{ github.event.inputs.urls }}" | grep -c "unimart.com/products/" || echo "0")
+            echo "- Total URLs: ${URL_COUNT}" >> $GITHUB_STEP_SUMMARY
+          fi
+          
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "Database has been updated and compressed." >> $GITHUB_STEP_SUMMARY

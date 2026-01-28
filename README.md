@@ -221,6 +221,11 @@ The scraper now supports parallel processing to dramatically improve speed:
 npm run scrape:daily
 npm run scrape:weekly
 
+# Manual URL scraping (NEW!)
+npm run scrape:manual                                    # Scrape URLs from manual-urls.txt
+node scraper.js --mode=manual --url=https://...         # Scrape single URL
+node scraper.js --mode=manual --urls-file=my-urls.txt   # Scrape from custom file
+
 # Parallel with default workers (8)
 npm run daily:parallel
 npm run weekly:parallel
@@ -233,6 +238,62 @@ node scraper.js --mode=weekly --segments=8 --segment=3
 node test_segments.js 4 daily    # 4 segments, daily mode
 node test_segments.js 2 weekly   # 2 segments, weekly mode
 ```
+
+## 🎯 Manual URL Scraping (NEW!)
+
+Sometimes products are missing from Unimart's sitemaps (e.g., newly added products). The scraper now supports manually specifying URLs to scrape:
+
+### 📋 Method 1: Single URL via Command Line
+
+```bash
+node scraper.js --mode=manual --url="https://www.unimart.com/products/your-product-here"
+```
+
+### 📄 Method 2: Multiple URLs from File
+
+1. Create a file (e.g., `manual-urls.txt`) with one URL per line:
+```
+# Manual URLs to scrape
+https://www.unimart.com/products/product-1
+https://www.unimart.com/products/product-2
+https://www.unimart.com/products/product-3
+```
+
+2. Run the scraper:
+```bash
+node scraper.js --mode=manual --urls-file=manual-urls.txt
+# OR use the npm script:
+npm run scrape:manual
+```
+
+### 🤖 Method 3: GitHub Actions (Easiest!)
+
+Use the web interface to scrape URLs without any local setup:
+
+1. Go to **Actions** tab in GitHub
+2. Select **"Manual URL Scraper"** workflow
+3. Click **"Run workflow"**
+4. Choose one option:
+   - **Single URL**: Paste one product URL
+   - **Multiple URLs**: Paste multiple URLs (one per line)
+5. Click **"Run workflow"** button
+6. Wait 2-3 minutes for completion
+7. Changes are automatically committed to the repository
+
+**Example URLs to scrape:**
+```
+https://www.unimart.com/products/xiaomi-power-bank-bateria-externa-alambrica-20000mah-t-pb2030mi
+https://www.unimart.com/products/another-product
+```
+
+### 💡 Use Cases for Manual Scraping
+
+- ✅ Products missing from sitemaps (newly added)
+- ✅ Specific products you want to track immediately
+- ✅ Testing the scraper with known products
+- ✅ Recovering from sitemap indexing delays
+- ✅ Emergency price checks for specific items
+
 
 ## ⚙️ CHEATSHEET: Changing Parallel Workers
 
