@@ -239,60 +239,21 @@ node test_segments.js 4 daily    # 4 segments, daily mode
 node test_segments.js 2 weekly   # 2 segments, weekly mode
 ```
 
-## 🎯 Manual URL Scraping (NEW!)
+## 🎯 Manual URL Scraping
 
-Sometimes products are missing from Unimart's sitemaps (e.g., newly added products). The scraper now supports manually specifying URLs to scrape:
-
-### 📋 Method 1: Single URL via Command Line
+**Quick scrape specific products (useful for newly added items not yet in sitemap):**
 
 ```bash
-node scraper.js --mode=manual --url="https://www.unimart.com/products/your-product-here"
-```
+# Single URL
+node scraper.js --mode=manual --url="https://www.unimart.com/products/..."
 
-### 📄 Method 2: Multiple URLs from File
-
-1. Create a file (e.g., `manual-urls.txt`) with one URL per line:
-```
-# Manual URLs to scrape
-https://www.unimart.com/products/product-1
-https://www.unimart.com/products/product-2
-https://www.unimart.com/products/product-3
-```
-
-2. Run the scraper:
-```bash
-node scraper.js --mode=manual --urls-file=manual-urls.txt
-# OR use the npm script:
+# Multiple URLs from file
+echo "https://www.unimart.com/products/..." > manual-urls.txt
 npm run scrape:manual
+
+# Via GitHub Actions (easiest - no local setup)
+# Actions → Manual URL Scraper → Paste URL(s) → Run
 ```
-
-### 🤖 Method 3: GitHub Actions (Easiest!)
-
-Use the web interface to scrape URLs without any local setup:
-
-1. Go to **Actions** tab in GitHub
-2. Select **"Manual URL Scraper"** workflow
-3. Click **"Run workflow"**
-4. Choose one option:
-   - **Single URL**: Paste one product URL
-   - **Multiple URLs**: Paste multiple URLs (one per line)
-5. Click **"Run workflow"** button
-6. Wait 2-3 minutes for completion
-7. Changes are automatically committed to the repository
-
-**Example URLs to scrape:**
-```
-https://www.unimart.com/products/xiaomi-power-bank-bateria-externa-alambrica-20000mah-t-pb2030mi
-https://www.unimart.com/products/another-product
-```
-
-### 💡 Use Cases for Manual Scraping
-
-- ✅ Products missing from sitemaps (newly added)
-- ✅ Specific products you want to track immediately
-- ✅ Testing the scraper with known products
-- ✅ Recovering from sitemap indexing delays
-- ✅ Emergency price checks for specific items
 
 
 ## ⚙️ CHEATSHEET: Changing Parallel Workers
