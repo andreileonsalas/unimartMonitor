@@ -6,6 +6,7 @@ const cheerio = require('cheerio');
 const xml2js = require('xml2js');
 const Database = require('better-sqlite3');
 const path = require('path');
+const fs = require('fs');
 
 // Sistema de logging simple
 const log = {
@@ -65,11 +66,26 @@ async function waitForCooldown() {
 // --mode=daily: Scrapea solo productos existentes en DB (rápido, actualiza precios)
 // --mode=weekly: Scrapea sitemap completo (descubre nuevos productos + variantes)
 // --mode=test: Scrapea solo primeros sitemaps para pruebas rápidas
+// --mode=manual: Scrapea URLs específicas (--url o --urls-file)
 const SCRAPE_MODE = (() => {
   if (process.argv.includes('--mode=daily')) return 'daily';
   if (process.argv.includes('--mode=weekly')) return 'weekly';
   if (process.argv.includes('--mode=test')) return 'test';
+  if (process.argv.includes('--mode=manual')) return 'manual';
   return 'weekly'; // default
+})();
+
+// 🎯 MANUAL URL SCRAPING:
+// --url=https://... : Scrapea una sola URL
+// --urls-file=path/to/file.txt : Scrapea URLs desde un archivo (una por línea)
+const MANUAL_URL = (() => {
+  const urlArg = process.argv.find(arg => arg.startsWith('--url='));
+  return urlArg ? urlArg.substring('--url='.length) : null;
+})();
+
+const MANUAL_URLS_FILE = (() => {
+  const fileArg = process.argv.find(arg => arg.startsWith('--urls-file='));
+  return fileArg ? fileArg.substring('--urls-file='.length) : null;
 })();
 
 function initDatabase() {
@@ -109,18 +125,18 @@ function initDatabase() {
 	`);
   
   // Agregar columnas status y last_check si no existen (para bases de datos migradas)	// Agregar columna shopify_gid si no existe
-	try {
-		db.exec('ALTER TABLE variants ADD COLUMN shopify_gid TEXT');
-	} catch (e) {
-		// Columna ya existe, ignorar error
-	}
+  try {
+    db.exec('ALTER TABLE variants ADD COLUMN shopify_gid TEXT');
+  } catch (e) {
+    // Columna ya existe, ignorar error
+  }
 	
-	// Agregar columna stock si no existe
-	try {
-		db.exec('ALTER TABLE variants ADD COLUMN stock INTEGER');
-	} catch (e) {
-		// Columna ya existe, ignorar error
-	}  try {
+  // Agregar columna stock si no existe
+  try {
+    db.exec('ALTER TABLE variants ADD COLUMN stock INTEGER');
+  } catch (e) {
+    // Columna ya existe, ignorar error
+  }  try {
     db.exec('ALTER TABLE products ADD COLUMN status TEXT DEFAULT \'active\'');
   } catch {
     // Columna ya existe
@@ -152,7 +168,7 @@ function extractVariantsFromHTML(html) {
         
         if (variant.sku) {
           const extractedVariant = {
-            name: variant.title === "Default Title" 
+            name: variant.title === 'Default Title' 
               ? (variant.product?.title || 'Variante')
               : variant.title, // ✅ USAR título del producto si variant.title es "Default Title"
             sku: variant.sku,
@@ -244,7 +260,7 @@ async function extractSKUFromHTML(pageUrl) {
 
     // Intento 4: buscar en texto "SKU:" o "SKU ="
     const html = $.html();
-    let match = html.match(/SKU\s*[:=]\s*([A-Z0-9\-]+)/i);
+    const match = html.match(/SKU\s*[:=]\s*([A-Z0-9\-]+)/i);
     if (match && match[1]) {
       sku = match[1];
       // Limpiar prefijo "SKU" si está presente
@@ -320,7 +336,7 @@ async function detectVariants(url) {
     }
     
     // 💡 FALLBACK: Usar método anterior si no hay datos embebidos
-    log.info(`  💡 Fallback a detección HTML tradicional`);
+    log.info('  💡 Fallback a detección HTML tradicional');
     
     // Buscar la clase .product-options
     const productOptions = $('.product-options');
@@ -410,7 +426,7 @@ async function scrapeSimpleProduct(url) {
     // 🛡️ DETECTAR TIMEOUT Y ACTIVAR COOLDOWN
     if (e.code === 'ECONNABORTED' || e.message.includes('timeout')) {
       lastTimeoutTime = Date.now();
-      console.log(`    🛡️ TIMEOUT detectado - activando cooldown de 60s`);
+      console.log('    🛡️ TIMEOUT detectado - activando cooldown de 60s');
     }
     log.error(`Error scrapeando precio: ${e.message}`);
     return null;
@@ -518,7 +534,7 @@ async function scrapeAndSave(db, url) {
         }
         
         // Buscar si la variante ya existe (por URL o por product_id + variant_label + variant_value)
-        log.debug(`       🔍 Verificando existencia...`);
+        log.debug('       🔍 Verificando existencia...');
         log.debug(`          📊 product_id: ${product.id}`);
         log.debug(`          🏷️  label: "${detected.label}"`);
         log.debug(`          📝 value: "${v.title}"`);
@@ -532,12 +548,12 @@ async function scrapeAndSave(db, url) {
         if (exists) {
           log.debug(`       ✅ ENCONTRADA variante existente (ID: ${exists.id}, SKU: ${exists.sku || 'NULL'})`);
         } else {
-          log.debug(`       🆕 NUEVA variante - será insertada`);
+          log.debug('       🆕 NUEVA variante - será insertada');
         }
         
         if (!exists) {
           // INSERT: Nueva variante
-          log.debug(`       ➕ INSERTANDO nueva variante...`);
+          log.debug('       ➕ INSERTANDO nueva variante...');
           log.debug(`          📊 product_id: ${product.id}`);
           log.debug(`          🔗 url: "${variantUrl}"`);
           log.debug(`          📋 sku: "${skuFromVariant || 'NULL'}"`);
@@ -563,7 +579,7 @@ async function scrapeAndSave(db, url) {
             log.debug(`       ✏️  ACTUALIZANDO SKU: NULL → "${skuFromVariant}"`);
             const updateSku = db.prepare('UPDATE variants SET sku = ? WHERE id = ?');
             updateSku.run(skuFromVariant, exists.id);
-            log.debug(`       ✅ SKU actualizado exitosamente`);
+            log.debug('       ✅ SKU actualizado exitosamente');
           }
           // UPDATE: Actualizar stock siempre
           const updateStock = db.prepare('UPDATE variants SET stock = ? WHERE id = ?');
@@ -572,7 +588,7 @@ async function scrapeAndSave(db, url) {
         }
         
         // ✅ Guardar precio
-        log.debug(`\n       💰 PROCESANDO PRECIO...`);
+        log.debug('\n       💰 PROCESANDO PRECIO...');
         const variant = db.prepare(`
           SELECT id FROM variants 
           WHERE url = ? OR (product_id = ? AND variant_label = ? AND variant_value = ?)
@@ -674,7 +690,49 @@ async function main() {
   
   let uniqueUrlBases = [];
   
-  if (SCRAPE_MODE === 'daily') {
+  if (SCRAPE_MODE === 'manual') {
+    // 🎯 MODO MANUAL: Scrapear URLs específicas proporcionadas por el usuario
+    log.info('🎯 Modo Manual: Scrapeando URLs específicas\n');
+    
+    if (MANUAL_URL) {
+      // Una sola URL desde --url=
+      // Validate URL
+      if (!MANUAL_URL.includes('unimart.com/products/')) {
+        log.error(`❌ URL inválida: ${MANUAL_URL}`);
+        log.error('   La URL debe ser de un producto de Unimart (https://www.unimart.com/products/...)');
+        process.exit(1);
+      }
+      uniqueUrlBases = [MANUAL_URL];
+      log.info(`📌 Scrapeando URL única: ${MANUAL_URL}\n`);
+    } else if (MANUAL_URLS_FILE) {
+      // Múltiples URLs desde archivo
+      if (!fs.existsSync(MANUAL_URLS_FILE)) {
+        log.error(`❌ Archivo no encontrado: ${MANUAL_URLS_FILE}`);
+        process.exit(1);
+      }
+      
+      const fileContent = fs.readFileSync(MANUAL_URLS_FILE, 'utf8');
+      const urls = fileContent
+        .split('\n')
+        .map(line => line.trim())
+        .filter(line => line.length > 0 && !line.startsWith('#'))
+        .filter(line => line.includes('unimart.com/products/'));
+      
+      uniqueUrlBases = [...new Set(urls)]; // Remove duplicates
+      log.info(`📄 Cargadas ${uniqueUrlBases.length} URLs desde ${MANUAL_URLS_FILE}\n`);
+      
+      if (uniqueUrlBases.length === 0) {
+        log.error('❌ No se encontraron URLs válidas en el archivo');
+        process.exit(1);
+      }
+    } else {
+      log.error('❌ Modo manual requiere --url= o --urls-file=');
+      log.error('   Ejemplo: node scraper.js --mode=manual --url=https://www.unimart.com/products/...');
+      log.error('   Ejemplo: node scraper.js --mode=manual --urls-file=urls.txt');
+      process.exit(1);
+    }
+    
+  } else if (SCRAPE_MODE === 'daily') {
     // 📅 MODO DAILY: Solo actualizar precios de productos activos (sin 404s)
     log.info('📅 Modo Daily: Actualizando precios de productos activos\n');
     
@@ -753,7 +811,7 @@ async function main() {
 	
   // ⚡ Procesar productos EN PARALELO (20 simultáneos)
   let totalProcessed = 0;
-  let startTime = Date.now();
+  const startTime = Date.now();
   
   for (let i = 0; i < uniqueUrlBases.length; i += PARALLEL_REQUESTS) {
     const batch = uniqueUrlBases.slice(i, i + PARALLEL_REQUESTS);

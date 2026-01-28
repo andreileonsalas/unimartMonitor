@@ -2,7 +2,7 @@
 . "$(dirname -- "$0")/_/husky.sh"
 
 echo "🧪 Running tests before push..."
-npm test
+npm run test:all
 
 if [ $? -ne 0 ]; then
   echo "❌ Tests failed. Push cancelled."

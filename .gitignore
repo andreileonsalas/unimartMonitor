@@ -143,5 +143,13 @@ prices.db
 prices.db-shm
 prices.db-wal
 
-# Incluir DB comprimida para GitHub Pages (66% más pequeña)
+# Ignorar DBs de segmentos temporales
+prices-*.db
+prices-*.db-shm
+prices-*.db-wal
+
+# Ignorar archivo de test
+test_url.js
+
+# Incluir DB comprimida (necesaria para el viewer)
 !prices.db.gz
