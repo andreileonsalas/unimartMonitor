@@ -124,18 +124,18 @@ function initDatabase() {
 	`);
   
   // Agregar columnas status y last_check si no existen (para bases de datos migradas)	// Agregar columna shopify_gid si no existe
-	try {
-		db.exec('ALTER TABLE variants ADD COLUMN shopify_gid TEXT');
-	} catch (e) {
-		// Columna ya existe, ignorar error
-	}
+  try {
+    db.exec('ALTER TABLE variants ADD COLUMN shopify_gid TEXT');
+  } catch (e) {
+    // Columna ya existe, ignorar error
+  }
 	
-	// Agregar columna stock si no existe
-	try {
-		db.exec('ALTER TABLE variants ADD COLUMN stock INTEGER');
-	} catch (e) {
-		// Columna ya existe, ignorar error
-	}  try {
+  // Agregar columna stock si no existe
+  try {
+    db.exec('ALTER TABLE variants ADD COLUMN stock INTEGER');
+  } catch (e) {
+    // Columna ya existe, ignorar error
+  }  try {
     db.exec('ALTER TABLE products ADD COLUMN status TEXT DEFAULT \'active\'');
   } catch {
     // Columna ya existe
@@ -167,7 +167,7 @@ function extractVariantsFromHTML(html) {
         
         if (variant.sku) {
           const extractedVariant = {
-            name: variant.title === "Default Title" 
+            name: variant.title === 'Default Title' 
               ? (variant.product?.title || 'Variante')
               : variant.title, // ✅ USAR título del producto si variant.title es "Default Title"
             sku: variant.sku,
@@ -259,7 +259,7 @@ async function extractSKUFromHTML(pageUrl) {
 
     // Intento 4: buscar en texto "SKU:" o "SKU ="
     const html = $.html();
-    let match = html.match(/SKU\s*[:=]\s*([A-Z0-9\-]+)/i);
+    const match = html.match(/SKU\s*[:=]\s*([A-Z0-9\-]+)/i);
     if (match && match[1]) {
       sku = match[1];
       // Limpiar prefijo "SKU" si está presente
@@ -335,7 +335,7 @@ async function detectVariants(url) {
     }
     
     // 💡 FALLBACK: Usar método anterior si no hay datos embebidos
-    log.info(`  💡 Fallback a detección HTML tradicional`);
+    log.info('  💡 Fallback a detección HTML tradicional');
     
     // Buscar la clase .product-options
     const productOptions = $('.product-options');
@@ -425,7 +425,7 @@ async function scrapeSimpleProduct(url) {
     // 🛡️ DETECTAR TIMEOUT Y ACTIVAR COOLDOWN
     if (e.code === 'ECONNABORTED' || e.message.includes('timeout')) {
       lastTimeoutTime = Date.now();
-      console.log(`    🛡️ TIMEOUT detectado - activando cooldown de 60s`);
+      console.log('    🛡️ TIMEOUT detectado - activando cooldown de 60s');
     }
     log.error(`Error scrapeando precio: ${e.message}`);
     return null;
@@ -533,7 +533,7 @@ async function scrapeAndSave(db, url) {
         }
         
         // Buscar si la variante ya existe (por URL o por product_id + variant_label + variant_value)
-        log.debug(`       🔍 Verificando existencia...`);
+        log.debug('       🔍 Verificando existencia...');
         log.debug(`          📊 product_id: ${product.id}`);
         log.debug(`          🏷️  label: "${detected.label}"`);
         log.debug(`          📝 value: "${v.title}"`);
@@ -547,12 +547,12 @@ async function scrapeAndSave(db, url) {
         if (exists) {
           log.debug(`       ✅ ENCONTRADA variante existente (ID: ${exists.id}, SKU: ${exists.sku || 'NULL'})`);
         } else {
-          log.debug(`       🆕 NUEVA variante - será insertada`);
+          log.debug('       🆕 NUEVA variante - será insertada');
         }
         
         if (!exists) {
           // INSERT: Nueva variante
-          log.debug(`       ➕ INSERTANDO nueva variante...`);
+          log.debug('       ➕ INSERTANDO nueva variante...');
           log.debug(`          📊 product_id: ${product.id}`);
           log.debug(`          🔗 url: "${variantUrl}"`);
           log.debug(`          📋 sku: "${skuFromVariant || 'NULL'}"`);
@@ -578,7 +578,7 @@ async function scrapeAndSave(db, url) {
             log.debug(`       ✏️  ACTUALIZANDO SKU: NULL → "${skuFromVariant}"`);
             const updateSku = db.prepare('UPDATE variants SET sku = ? WHERE id = ?');
             updateSku.run(skuFromVariant, exists.id);
-            log.debug(`       ✅ SKU actualizado exitosamente`);
+            log.debug('       ✅ SKU actualizado exitosamente');
           }
           // UPDATE: Actualizar stock siempre
           const updateStock = db.prepare('UPDATE variants SET stock = ? WHERE id = ?');
@@ -587,7 +587,7 @@ async function scrapeAndSave(db, url) {
         }
         
         // ✅ Guardar precio
-        log.debug(`\n       💰 PROCESANDO PRECIO...`);
+        log.debug('\n       💰 PROCESANDO PRECIO...');
         const variant = db.prepare(`
           SELECT id FROM variants 
           WHERE url = ? OR (product_id = ? AND variant_label = ? AND variant_value = ?)
@@ -805,7 +805,7 @@ async function main() {
 	
   // ⚡ Procesar productos EN PARALELO (20 simultáneos)
   let totalProcessed = 0;
-  let startTime = Date.now();
+  const startTime = Date.now();
   
   for (let i = 0; i < uniqueUrlBases.length; i += PARALLEL_REQUESTS) {
     const batch = uniqueUrlBases.slice(i, i + PARALLEL_REQUESTS);
