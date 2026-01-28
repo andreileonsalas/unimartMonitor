@@ -79,12 +79,12 @@ const SCRAPE_MODE = (() => {
 // --urls-file=path/to/file.txt : Scrapea URLs desde un archivo (una por línea)
 const MANUAL_URL = (() => {
   const urlArg = process.argv.find(arg => arg.startsWith('--url='));
-  return urlArg ? urlArg.split('=')[1] : null;
+  return urlArg ? urlArg.substring('--url='.length) : null;
 })();
 
 const MANUAL_URLS_FILE = (() => {
   const fileArg = process.argv.find(arg => arg.startsWith('--urls-file='));
-  return fileArg ? fileArg.split('=')[1] : null;
+  return fileArg ? fileArg.substring('--urls-file='.length) : null;
 })();
 
 function initDatabase() {
