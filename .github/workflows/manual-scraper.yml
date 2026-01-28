@@ -16,6 +16,8 @@ jobs:
   manual-scrape:
     runs-on: ubuntu-latest
     timeout-minutes: 30
+    permissions:
+      contents: write  # Required to commit and push changes
 
     steps:
       - name: Checkout repository

@@ -6,6 +6,7 @@ const cheerio = require('cheerio');
 const xml2js = require('xml2js');
 const Database = require('better-sqlite3');
 const path = require('path');
+const fs = require('fs');
 
 // Sistema de logging simple
 const log = {
@@ -695,11 +696,16 @@ async function main() {
     
     if (MANUAL_URL) {
       // Una sola URL desde --url=
+      // Validate URL
+      if (!MANUAL_URL.includes('unimart.com/products/')) {
+        log.error(`❌ URL inválida: ${MANUAL_URL}`);
+        log.error('   La URL debe ser de un producto de Unimart (https://www.unimart.com/products/...)');
+        process.exit(1);
+      }
       uniqueUrlBases = [MANUAL_URL];
       log.info(`📌 Scrapeando URL única: ${MANUAL_URL}\n`);
     } else if (MANUAL_URLS_FILE) {
       // Múltiples URLs desde archivo
-      const fs = require('fs');
       if (!fs.existsSync(MANUAL_URLS_FILE)) {
         log.error(`❌ Archivo no encontrado: ${MANUAL_URLS_FILE}`);
         process.exit(1);

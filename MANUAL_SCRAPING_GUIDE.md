@@ -60,13 +60,19 @@ https://www.unimart.com/products/yet-another-product
 
 ---
 
-## 📊 Results
-After running manual scraping, the Xiaomi Power Bank is now tracked:
+## 📊 Example Results
+After running manual scraping for a product, you can expect:
 - ✅ Product added to database
-- ✅ 2 variants detected (Azul, Beige)
-- ✅ Prices tracked: ₡15,500 and ₡20,200
-- ✅ Stock information: 115 units (Azul), Out of stock (Beige)
+- ✅ Variants detected automatically
+- ✅ Prices tracked with currency
+- ✅ Stock information captured (when available)
 - ✅ Will be updated daily by automatic scraper
+
+**Example with Xiaomi Power Bank (from initial test):**
+- 2 variants detected (Azul, Beige)
+- Prices tracked: ₡15,500 and ₡20,200
+- Stock information: 115 units (Azul), Out of stock (Beige)
+- *Note: These are example values from a specific point in time and will change.*
 
 ---
 
