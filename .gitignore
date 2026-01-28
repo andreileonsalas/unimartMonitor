@@ -142,6 +142,7 @@ vite.config.ts.timestamp-*
 prices.db
 prices.db-shm
 prices.db-wal
+prices.db.gz
 
 # Ignorar DBs de segmentos temporales
 prices-*.db
@@ -150,6 +151,3 @@ prices-*.db-wal
 
 # Ignorar archivo de test
 test_url.js
-
-# Incluir DB comprimida para GitHub Pages (66% más pequeña)
-!prices.db.gz
