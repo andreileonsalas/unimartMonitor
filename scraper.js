@@ -102,11 +102,12 @@ function initDatabase() {
 		CREATE TABLE IF NOT EXISTS variants (
 			id INTEGER PRIMARY KEY AUTOINCREMENT,
 			product_id INTEGER NOT NULL,
-			url TEXT UNIQUE NOT NULL,
-			sku TEXT,
-			variant_label TEXT,
-			variant_value TEXT,
-			shopify_gid TEXT,
+		url TEXT NOT NULL,
+		sku TEXT,
+		variant_label TEXT,
+		variant_value TEXT,
+		shopify_gid TEXT,
+		UNIQUE(product_id, variant_value),
 			FOREIGN KEY (product_id) REFERENCES products(id)
 		);
 		CREATE TABLE IF NOT EXISTS prices (
@@ -506,21 +507,21 @@ async function scrapeAndSave(db, url) {
         log.debug(`       💰 Precio embebido: ${v.price || 'N/A'}`);
         log.debug(`       🆔 GID: "${v.gid || 'N/A'}"`);
         
-        let variantUrl = url;
-        let variantPrice = v.price; // Precio desde datos embebidos (si existe)
-        let skuFromVariant = v.sku; // SKU desde datos embebidos (si existe)
-        
-        // Si NO tenemos precio embebido, usar método anterior (request HTTP)
-        if (!variantPrice) {
-          if (detected.label && v.title) {
-            const param = encodeURIComponent(detected.label) + '=' + encodeURIComponent(v.title);
-            variantUrl = url + (url.includes('?') ? '&' : '?') + param;
-            log.debug(`       🔗 URL construida: ${variantUrl}`);
-          } else {
-            log.debug(`       🔗 URL base (sin parámetros): ${variantUrl}`);
-          }
-          
-          // Solo hacer requests adicionales si NO tenemos datos embebidos
+      // 🔗 SIEMPRE construir URL con parámetros de variante para garantizar unicidad
+      let variantUrl = url;
+      if (detected.label && v.title) {
+        const param = encodeURIComponent(detected.label) + '=' + encodeURIComponent(v.title);
+        variantUrl = url + (url.includes('?') ? '&' : '?') + param;
+        log.debug(`       🔗 URL construida: ${variantUrl}`);
+      } else {
+        log.debug(`       🔗 URL base (sin parámetros): ${variantUrl}`);
+      }
+      
+      let variantPrice = v.price; // Precio desde datos embebidos (si existe)
+      let skuFromVariant = v.sku; // SKU desde datos embebidos (si existe)
+      
+      // Si NO tenemos precio embebido, usar método anterior (request HTTP)
+      if (!variantPrice) {
           const [skuFromHTML, scrapedPrice] = await Promise.all([
             skuFromVariant ? Promise.resolve(skuFromVariant) : extractSKUFromHTML(variantUrl),
             scrapeSimpleProduct(variantUrl)
@@ -533,17 +534,14 @@ async function scrapeAndSave(db, url) {
           log.info(`    🚀 Usando datos embebidos para ${v.title}`);
         }
         
-        // Buscar si la variante ya existe (por URL o por product_id + variant_label + variant_value)
+        // Buscar si la variante ya existe (por URL única)
         log.debug('       🔍 Verificando existencia...');
-        log.debug(`          📊 product_id: ${product.id}`);
-        log.debug(`          🏷️  label: "${detected.label}"`);
-        log.debug(`          📝 value: "${v.title}"`);
         log.debug(`          🔗 url: "${variantUrl}"`);
         
         const exists = db.prepare(`
           SELECT id, sku FROM variants 
-          WHERE url = ? OR (product_id = ? AND variant_label = ? AND variant_value = ?)
-        `).get(variantUrl, product.id, detected.label, v.title);
+          WHERE url = ?
+        `).get(variantUrl);
         
         if (exists) {
           log.debug(`       ✅ ENCONTRADA variante existente (ID: ${exists.id}, SKU: ${exists.sku || 'NULL'})`);
