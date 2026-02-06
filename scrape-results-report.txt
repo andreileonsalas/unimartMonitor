@@ -1,0 +1,75 @@
+📊 REPORTE POST-SCRAPE: Resultados del Scraping
+======================================================================
+Fecha: 2026-02-06T18:29:50.200Z
+
+📈 ESTADÍSTICAS GENERALES:
+   Total productos: 45916
+   Total variantes: 45917
+   Total precios: 57465
+   Productos activos: 57466
+   Productos 404: 3
+   Ratio variantes/producto: 1.00
+
+🆕 PRODUCTOS ACTUALIZADOS (últimas 24 horas):
+   Productos checkeados: 45916
+
+   Top 10 más recientes:
+   1. Cable de Carga y Sincronización Duraspeed 240 W, A...
+      Checked: 2026-02-06 18:25:40 | Status: active
+   2. Scaner Enterprise Flow N7000 SNW1, 6FW10A#BGJ...
+      Checked: 2026-02-06 18:25:40 | Status: active
+   3. UPS Interactiva 360 W, SATUR750...
+      Checked: 2026-02-06 18:25:40 | Status: active
+   4. Cargador de Pared Doble Puerto 38 W, ARG-AC-0116WT...
+      Checked: 2026-02-06 18:25:40 | Status: active
+   5. UPS Interactiva 480 W, SATUR1000...
+      Checked: 2026-02-06 18:25:40 | Status: active
+   6. Smartwatch AI Watch Elite 2...
+      Checked: 2026-02-06 18:25:38 | Status: active
+   7. Soporte de Escritorio para Monitor y Laptop 14" a ...
+      Checked: 2026-02-06 18:25:38 | Status: active
+   8. Teléfono Celular 400, 256 GB...
+      Checked: 2026-02-06 18:25:38 | Status: active
+   9. Laptop 15.6" Notebook Gaming LOQ Essential 15IAX9E...
+      Checked: 2026-02-06 18:25:38 | Status: active
+   10. Audífonos Inalámbricos TWS Ora Earring Pods...
+      Checked: 2026-02-06 18:25:38 | Status: active
+
+🎨 PRODUCTOS CON MÚLTIPLES VARIANTES:
+   Total productos con múltiples variantes: Encontrados
+
+   Top 10 con más variantes:
+   1. Smartwatch Watch GT 6, 46mm + Gratis Audífonos Ina... (3 variantes)
+   2. Smartwatch Watch GT 5, 46mm + Gratis Audífonos Tru... (2 variantes)
+   3. Smartwatch Watch Fit 2 + Gratis Audífonos True Wir... (2 variantes)
+   4. Smartwatch Watch GT 6, 41mm + Gratis Audífonos Ina... (2 variantes)
+
+🔍 PRODUCTOS DE PRUEBA:
+
+   ✅ Xiaomi Redmi Buds 6 Play:
+      Status: active
+      Last check: 2026-02-06 17:54:33
+      Variantes: 1
+         1. Blanco (SKU: UM008OXG, Stock: N/A)
+
+   ✅ Xiaomi Redmi Buds 6 Active:
+      Status: active
+      Last check: 2026-02-06 18:15:40
+      Variantes: 1
+         1. Negro (SKU: UM00E1IQ, Stock: N/A)
+
+   ✅ Coby Freidora:
+      Status: active
+      Last check: 2026-02-06 18:15:46
+      Variantes: 1
+         1. Coby Freidora Aire Digital 12 Litros (CY-AIRF-12LZH-DG-BK-W) (SKU: 10447722133, Stock: 89)
+
+📦 ANÁLISIS DE STOCK:
+   Total variantes: 45917
+   Con stock: 44142 (96.1%)
+   Sin stock (0): 0 (0.0%)
+   Stock NULL: 1771 (3.9%)
+
+======================================================================
+✅ Reporte completado
+
