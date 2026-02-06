@@ -98,19 +98,8 @@ if (!allWorkerChecksPass) {
 
 // Test 5: Verificar que prices.db.gz es válido
 console.log('\n💾 Test 5: Database válida');
-const { execSync } = require('child_process');
 
 try {
-  // Verificar que es un archivo gzip válido
-  const fileType = execSync('file prices.db.gz').toString();
-  const isGzip = fileType.includes('gzip');
-  console.log(`  ${isGzip ? '✅' : '❌'} Archivo es gzip válido`);
-  
-  if (!isGzip) {
-    console.log('\n❌ FALLO: prices.db.gz no es un gzip válido\n');
-    process.exit(1);
-  }
-  
   // Verificar tamaño
   const stats = fs.statSync('prices.db.gz');
   const sizeMB = (stats.size / 1024 / 1024).toFixed(2);
@@ -122,27 +111,43 @@ try {
     process.exit(1);
   }
   
-  // Test de integridad gzip
+  // Test de integridad gzip (usando zlib nativo de Node.js)
   try {
-    execSync('gunzip -t prices.db.gz 2>&1');
+    const zlib = require('zlib');
+    const gzipData = fs.readFileSync('prices.db.gz');
+    zlib.gunzipSync(gzipData);
     console.log('  ✅ Integridad gzip OK');
   } catch (e) {
-    console.log('  ❌ Archivo gzip corrupto');
+    console.log('  ❌ Archivo gzip corrupto:', e.message);
     console.log('\n❌ FALLO: prices.db.gz está corrupto\n');
     process.exit(1);
   }
   
-  // Verificar que tiene datos SQLite
+  // Verificar que tiene datos SQLite (multiplataforma)
   try {
-    const productCount = execSync('gunzip -c prices.db.gz | sqlite3 /dev/stdin "SELECT COUNT(*) FROM products" 2>&1').toString().trim();
-    const hasProducts = parseInt(productCount) > 1000;
+    const zlib = require('zlib');
+    const Database = require('better-sqlite3');
+    const gzipData = fs.readFileSync('prices.db.gz');
+    const dbData = zlib.gunzipSync(gzipData);
+    
+    // Escribir temp para verificar
+    const tempDb = 'temp-test.db';
+    fs.writeFileSync(tempDb, dbData);
+    
+    const db = new Database(tempDb, { readonly: true });
+    const productCount = db.prepare('SELECT COUNT(*) as count FROM products').get().count;
+    db.close();
+    
+    fs.unlinkSync(tempDb);
+    
+    const hasProducts = productCount > 1000;
     console.log(`  ${hasProducts ? '✅' : '❌'} Productos en DB: ${productCount}`);
     
     if (!hasProducts) {
       console.log('\n⚠️  ADVERTENCIA: Pocos productos en la base de datos\n');
     }
   } catch (e) {
-    console.log('  ⚠️  No se pudo contar productos (puede ser normal en algunos ambientes)');
+    console.log('  ⚠️  No se pudo contar productos:', e.message);
   }
   
 } catch (e) {

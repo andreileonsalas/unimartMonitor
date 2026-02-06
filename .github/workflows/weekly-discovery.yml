@@ -7,6 +7,37 @@ on:
   workflow_dispatch: # Allow manual trigger
 
 jobs:
+  # Reporte independiente que corre en paralelo
+  pre-scrape-report:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      
+      - name: Install dependencies
+        run: npm install
+      
+      - name: Generate sitemap report
+        run: |
+          echo "📋 Generating pre-scrape sitemap report..."
+          node report_sitemap_products.js > sitemap-report.txt
+          cat sitemap-report.txt
+      
+      - name: Upload sitemap report
+        uses: actions/upload-artifact@v4
+        with:
+          name: sitemap-report
+          path: sitemap-report.txt
+          retention-days: 7
+
   weekly-discovery:
     runs-on: ubuntu-latest
     strategy:
@@ -83,6 +114,19 @@ jobs:
       - name: Optimize database (post-merge)
         run: node optimize_db.js
       
+      - name: Generate post-scrape report
+        run: |
+          echo "📊 Generating post-scrape results report..."
+          node report_scrape_results.js > scrape-results-report.txt
+          cat scrape-results-report.txt
+      
+      - name: Upload scrape results report
+        uses: actions/upload-artifact@v4
+        with:
+          name: scrape-results-report
+          path: scrape-results-report.txt
+          retention-days: 7
+      
       - name: Compress database
         run: node compress_db.js
       
@@ -91,5 +135,11 @@ jobs:
           git config --local user.email "github-actions[bot]@users.noreply.github.com"
           git config --local user.name "github-actions[bot]"
           git add prices.db.gz
+          
+          # Add reports to commit if they exist
+          if [ -f scrape-results-report.txt ]; then
+            git add scrape-results-report.txt
+          fi
+          
           git diff --quiet && git diff --staged --quiet || git commit -m "Weekly discovery & recovery - $(date +'%Y-%m-%d')"
           git push
