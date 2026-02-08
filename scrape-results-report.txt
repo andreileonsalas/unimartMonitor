@@ -1,86 +1,65 @@
 📊 REPORTE POST-SCRAPE: Resultados del Scraping
 ======================================================================
-Fecha: 2026-02-06T22:02:13.601Z
+Fecha: 2026-02-08T05:50:57.146Z
 
 📈 ESTADÍSTICAS GENERALES:
-   Total productos: 55170
-   Total variantes: 68175
-   Total precios: 70739
-   Productos activos: 70740
-   Productos 404: 3
-   Ratio variantes/producto: 1.24
+   Total productos: 30215
+   Total variantes: 33384
+   Total precios: 34801
+   Productos activos: 34801
+   Productos 404: 0
+   Ratio variantes/producto: 1.10
 
 🆕 PRODUCTOS ACTUALIZADOS (últimas 24 horas):
-   Productos checkeados: 55170
+   Productos checkeados: 30215
 
    Top 10 más recientes:
-   1. Sonya's Chickens...
-      Checked: 2026-02-06 21:58:06 | Status: active
-   2. Woodworking Joinery by Hand: Innovative Techniques...
-      Checked: 2026-02-06 21:58:06 | Status: active
-   3. Four Faces of the Moon...
-      Checked: 2026-02-06 21:58:06 | Status: active
-   4. Lonely Planet Kids Wild Things 1...
-      Checked: 2026-02-06 21:58:06 | Status: active
-   5. Once Upon a Potty: Boy...
-      Checked: 2026-02-06 21:58:06 | Status: active
-   6. The Story of the Butterfly Children...
-      Checked: 2026-02-06 21:58:04 | Status: active
-   7. Simply Chinese: Recipes from a Chinese Home Kitche...
-      Checked: 2026-02-06 21:58:04 | Status: active
-   8. Casada Con Una Bestia...
-      Checked: 2026-02-06 21:58:04 | Status: active
-   9. La raíz del YiJing (I Ching): Del ZhouYi al Clásic...
-      Checked: 2026-02-06 21:58:04 | Status: active
-   10. La náusea de Jean-Paul Sartre (Guía de lectura): R...
-      Checked: 2026-02-06 21:58:04 | Status: active
+   1. Blancanieves de los hermanos Grimm (Guía de lectur...
+      Checked: 2026-02-08 05:48:43 | Status: active
+   2. Embrace the Power of You: Owning Your Identity at ...
+      Checked: 2026-02-08 05:48:43 | Status: active
+   3. Wa - The Art of Balance: Live Healthier, Happier a...
+      Checked: 2026-02-08 05:48:43 | Status: active
+   4. Aprendiendo Hebreo ¡Vamos a comer!: Libro de activ...
+      Checked: 2026-02-08 05:48:42 | Status: active
+   5. Employalty: How to Ignite Commitment and Keep Top ...
+      Checked: 2026-02-08 05:48:42 | Status: active
+   6. Bloodborne Vol. 4: The Veil, Torn Asunder (Graphic...
+      Checked: 2026-02-08 05:48:42 | Status: active
+   7. Lonely Planet Seoul 10...
+      Checked: 2026-02-08 05:48:42 | Status: active
+   8. Vuelo nocturno de Antoine de Saint-Exupéry (Guía d...
+      Checked: 2026-02-08 05:48:42 | Status: active
+   9. The Artful Pie Project: A Sweet and Savoury Book o...
+      Checked: 2026-02-08 05:48:42 | Status: active
+   10. El principio de Pareto: Optimice su negocio con la...
+      Checked: 2026-02-08 05:48:42 | Status: active
 
 🎨 PRODUCTOS CON MÚLTIPLES VARIANTES:
    Total productos con múltiples variantes: Encontrados
 
    Top 10 con más variantes:
-   1. Pintura Aerosol, 8 oz, Negro Mate... (26 variantes)
-   2. Cubo Corto Hexagonal Espiga 3/8", 9/16"... (25 variantes)
-   3. Cubo Espiga 1/2" Hexagonal, 8 Mm... (24 variantes)
-   4. Salsa Cero Calorías, Hamburguesa Americana... (22 variantes)
-   5. Cubo Largo Hexagonal Espiga 3/8", 3/8"... (19 variantes)
-   6. Tocadiscos 4 en 1 Bluetooth The Journey, Vsc-550bt... (19 variantes)
-   7. Control Inalámbrico Dualsense PlayStation 5 PS5, F... (18 variantes)
-   8. Vaso Térmico de Acero Inoxidable Freedom, 30 Oz, R... (17 variantes)
-   9. Llave Corofija, 6 mm... (16 variantes)
-   10. Vaso Térmico de Acero Inoxidable, 20 Oz, Rosa... (16 variantes)
+   1. Batidora con Tazón Artisan 5Q (KSM150PS), Rojo... (12 variantes)
+   2. Taza de Café con Cuchara y Tapa, Diseño Horóscopo,... (12 variantes)
+   3. Audífonos Alámbricos con Micrófono Smile Jamaica, ... (11 variantes)
+   4. Cincel para Plástico, 1"... (10 variantes)
+   5. Tenis Future Rider New Core Gris/Azul, para Hombre... (9 variantes)
+   6. Cuchillo Agrícola, 12"... (8 variantes)
+   7. Mochila Impermeable, para Niño, Oso... (8 variantes)
+   8. Nivel de Aluminio Doble, 40 Cm... (8 variantes)
+   9. Prensa Sargento, 5/15 cm... (8 variantes)
+   10. Destornillador Plano, 1/4X5"... (8 variantes)
 
 🔍 PRODUCTOS DE PRUEBA:
-
-   ✅ Xiaomi Redmi Buds 6 Play:
-      Status: active
-      Last check: 2026-02-06 21:22:18
-      Variantes: 4
-         1. Blanco (SKU: UM008OXG, Stock: N/A)
-         2. Negro (SKU: MBP-9248, Stock: 264)
-         3. Azul (SKU: UM00RILM, Stock: 101)
-         4. Rosa (SKU: UM00BMML, Stock: N/A)
-
-   ✅ Xiaomi Redmi Buds 6 Active:
-      Status: active
-      Last check: 2026-02-06 21:45:54
-      Variantes: 4
-         1. Negro (SKU: UM00E1IQ, Stock: 2776)
-         2. Blanco (SKU: UM00Z149, Stock: 1028)
-         3. Celeste (SKU: UM00OCE9, Stock: N/A)
-         4. Rosa (SKU: UM00DEL0, Stock: N/A)
-
-   ✅ Coby Freidora:
-      Status: active
-      Last check: 2026-02-06 21:46:02
-      Variantes: 1
-         1. Coby Freidora de Aire Digital Doble Canasta 8 Litros (CY-AIRF-D8LDH-DG-BK-W) (SKU: 10447722134, Stock: 18)
+   ❌ Xiaomi Redmi Buds 6 Play: NO ENCONTRADO
+   ❌ Xiaomi Redmi Buds 6 Active: NO ENCONTRADO
+   ❌ Coby Freidora: NO ENCONTRADO
 
 📦 ANÁLISIS DE STOCK:
-   Total variantes: 68175
-   Con stock: 61986 (90.9%)
+   Total variantes: 33384
+   Con stock: 32244 (96.6%)
    Sin stock (0): 0 (0.0%)
-   Stock NULL: 6169 (9.0%)
+   Stock NULL: 1135 (3.4%)
 
 ======================================================================
 ✅ Reporte completado
