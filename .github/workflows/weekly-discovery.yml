@@ -102,6 +102,21 @@ jobs:
       - name: Install dependencies
         run: npm install
       
+      - name: Validate existing database
+        run: |
+          if [ ! -f prices.db.gz ]; then
+            echo "❌ ERROR: prices.db.gz not found in repository"
+            echo "Cannot perform incremental merge without existing database"
+            exit 1
+          fi
+          echo "✓ Existing database found"
+      
+      - name: Decompress existing database for incremental merge
+        run: |
+          gunzip -k prices.db.gz
+          echo "✓ Existing database decompressed for merge"
+          ls -lh prices.db
+      
       - name: Download all segment databases
         uses: actions/download-artifact@v4
         with:
