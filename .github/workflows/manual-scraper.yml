@@ -32,13 +32,7 @@ jobs:
         run: npm ci
 
       - name: Decompress database
-        run: |
-          if [ -f prices.db.gz ]; then
-            gunzip -c prices.db.gz > prices.db
-            echo "✅ Database decompressed"
-          else
-            echo "⚠️ No compressed database found - will create new one"
-          fi
+        run: node decompress_db.js || echo "⚠️ No compressed database found - will create new one"
 
       - name: Optimize database before scraping
         run: node optimize_db.js || echo "Database optimization skipped (first run)"

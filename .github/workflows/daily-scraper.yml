@@ -30,13 +30,7 @@ jobs:
         run: npm install
       
       - name: Decompress database
-        run: |
-          if [ -f prices.db.gz ]; then
-            gunzip -k prices.db.gz
-            echo "✓ Database decompressed"
-          else
-            echo "⚠ No compressed database found, starting fresh"
-          fi
+        run: node decompress_db.js
       
       - name: Optimize database (pre-scrape)
         run: node optimize_db.js
@@ -77,14 +71,8 @@ jobs:
           pattern: prices-segment-*
           merge-multiple: true
       
-      - name: Decompress existing database
-        run: |
-          if [ -f prices.db.gz ]; then
-            gunzip -k prices.db.gz
-            echo "✓ Existing database decompressed for merge"
-          else
-            echo "⚠ No existing database found, starting fresh"
-          fi
+      - name: Decompress existing database for merge
+        run: node decompress_db.js
       
       - name: Merge segment databases
         run: node merge_db.js
