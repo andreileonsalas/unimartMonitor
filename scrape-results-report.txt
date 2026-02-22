@@ -1,39 +1,39 @@
 📊 REPORTE POST-SCRAPE: Resultados del Scraping
 ======================================================================
-Fecha: 2026-02-15T05:47:29.904Z
+Fecha: 2026-02-22T05:28:33.180Z
 
 📈 ESTADÍSTICAS GENERALES:
-   Total productos: 66657
-   Total variantes: 81535
-   Total precios: 446735
-   Productos activos: 446646
-   Productos 404: 92
+   Total productos: 71942
+   Total variantes: 87860
+   Total precios: 954677
+   Productos activos: 954409
+   Productos 404: 271
    Ratio variantes/producto: 1.22
 
 🆕 PRODUCTOS ACTUALIZADOS (últimas 24 horas):
-   Productos checkeados: 34449
+   Productos checkeados: 46521
 
    Top 10 más recientes:
-   1. My First How to Catch a Witch...
-      Checked: 2026-02-15 05:46:31 | Status: active
-   2. Atardecer Poético: Poemas, Versos Libres y Reflexi...
-      Checked: 2026-02-15 05:46:31 | Status: active
-   3. Ascendance of a Bookworm: Part 4 Volume 4...
-      Checked: 2026-02-15 05:46:30 | Status: active
-   4. A María el corazón Auto historial alegórico...
-      Checked: 2026-02-15 05:46:28 | Status: active
-   5. Do You Speak Fish?: A Story about Communicating an...
-      Checked: 2026-02-15 05:46:28 | Status: active
-   6. El Diablo, Desde Una Perspectiva Biblica...
-      Checked: 2026-02-15 05:46:28 | Status: active
-   7. Juan: En el principio era Cristo...
-      Checked: 2026-02-15 05:46:28 | Status: active
-   8. Mental Training for Ultrarunning...
-      Checked: 2026-02-15 05:46:28 | Status: active
-   9. Soñar tu nombre...
-      Checked: 2026-02-15 05:46:28 | Status: active
-   10. Fifty Shades as Told by Christian Trilogy: Grey, D...
-      Checked: 2026-02-15 05:46:28 | Status: active
+   1. The Story of the Moors in Spain...
+      Checked: 2026-02-22 05:27:35 | Status: active
+   2. Ueber Die Lehre Des Aristoteles Von Der Ewigkeit D...
+      Checked: 2026-02-22 05:27:35 | Status: active
+   3. What Happened to You?...
+      Checked: 2026-02-22 05:27:35 | Status: active
+   4. South America To-Day: A Study of Conditions, Socia...
+      Checked: 2026-02-22 05:27:35 | Status: active
+   5. The Wolf in the Whale...
+      Checked: 2026-02-22 05:27:35 | Status: active
+   6. El Poder De La Impotencia: Drama En Tres Actos Y E...
+      Checked: 2026-02-22 05:27:35 | Status: active
+   7. Informe sobre la cuestión de validez del tratado d...
+      Checked: 2026-02-22 05:27:35 | Status: active
+   8. Smoke...
+      Checked: 2026-02-22 05:27:33 | Status: active
+   9. Frozen: Anna, Elsa, and the Enchanting Holiday...
+      Checked: 2026-02-22 05:27:32 | Status: active
+   10. Portugués vocabulario - palabras mas usadas - Espa...
+      Checked: 2026-02-22 05:27:32 | Status: active
 
 🎨 PRODUCTOS CON MÚLTIPLES VARIANTES:
    Total productos con múltiples variantes: Encontrados
@@ -42,11 +42,11 @@ Fecha: 2026-02-15T05:47:29.904Z
    1. Pintura Aerosol, 8 oz, Negro Mate... (26 variantes)
    2. Cubo Corto Hexagonal Espiga 3/8", 9/16"... (25 variantes)
    3. Cubo Espiga 1/2" Hexagonal, 8 Mm... (24 variantes)
-   4. Salsa Cero Calorías, Hamburguesa Americana... (22 variantes)
+   4. Salsa Cero Calorías, Maple... (22 variantes)
    5. Cubo Largo Hexagonal Espiga 3/8", 3/8"... (19 variantes)
    6. Tocadiscos 4 en 1 Bluetooth The Journey, Vsc-550bt... (19 variantes)
    7. Control Inalámbrico Dualsense PlayStation 5 PS5, B... (18 variantes)
-   8. Vaso Térmico de Acero Inoxidable Freedom, 30 Oz, R... (17 variantes)
+   8. Vaso Térmico de Acero Inoxidable Freedom, 30 Oz, A... (17 variantes)
    9. Llave Corofija, 6 mm... (16 variantes)
    10. Vaso Térmico de Acero Inoxidable, 20 Oz, Rosa... (16 variantes)
 
@@ -54,33 +54,33 @@ Fecha: 2026-02-15T05:47:29.904Z
 
    ✅ Xiaomi Redmi Buds 6 Play:
       Status: active
-      Last check: 2026-02-14 05:43:12
+      Last check: 2026-02-22 05:17:08
       Variantes: 4
          1. Blanco (SKU: UM008OXG, Stock: N/A)
-         2. Negro (SKU: MBP-9248, Stock: 1)
+         2. Negro (SKU: MBP-9248, Stock: 10)
          3. Azul (SKU: UM00RILM, Stock: N/A)
          4. Rosa (SKU: UM00BMML, Stock: N/A)
 
    ✅ Xiaomi Redmi Buds 6 Active:
       Status: active
-      Last check: 2026-02-14 05:34:31
+      Last check: 2026-02-21 05:20:58
       Variantes: 4
-         1. Negro (SKU: UM00E1IQ, Stock: 2297)
-         2. Blanco (SKU: UM00Z149, Stock: 951)
+         1. Negro (SKU: UM00E1IQ, Stock: 2044)
+         2. Blanco (SKU: UM00Z149, Stock: 888)
          3. Celeste (SKU: UM00OCE9, Stock: N/A)
          4. Rosa (SKU: UM00DEL0, Stock: N/A)
 
    ✅ Coby Freidora:
       Status: active
-      Last check: 2026-02-14 05:34:43
+      Last check: 2026-02-21 05:21:09
       Variantes: 1
-         1. Coby Freidora de Aire Digital Doble Canasta 8 Litros (CY-AIRF-D8LDH-DG-BK-W) (SKU: 10447722134, Stock: 10)
+         1. Coby Freidora de Aire Digital Doble Canasta 8 Litros (CY-AIRF-D8LDH-DG-BK-W) (SKU: 10447722134, Stock: 15)
 
 📦 ANÁLISIS DE STOCK:
-   Total variantes: 81535
-   Con stock: 72117 (88.4%)
+   Total variantes: 87860
+   Con stock: 76220 (86.8%)
    Sin stock (0): 0 (0.0%)
-   Stock NULL: 9380 (11.5%)
+   Stock NULL: 11593 (13.2%)
 
 ======================================================================
 ✅ Reporte completado
