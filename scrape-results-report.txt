@@ -1,39 +1,39 @@
 📊 REPORTE POST-SCRAPE: Resultados del Scraping
 ======================================================================
-Fecha: 2026-02-22T05:28:33.180Z
+Fecha: 2026-03-01T05:50:42.760Z
 
 📈 ESTADÍSTICAS GENERALES:
-   Total productos: 71942
-   Total variantes: 87860
-   Total precios: 954677
-   Productos activos: 954409
-   Productos 404: 271
+   Total productos: 84659
+   Total variantes: 103020
+   Total precios: 1527554
+   Productos activos: 1526485
+   Productos 404: 1072
    Ratio variantes/producto: 1.22
 
 🆕 PRODUCTOS ACTUALIZADOS (últimas 24 horas):
-   Productos checkeados: 46521
+   Productos checkeados: 38078
 
    Top 10 más recientes:
-   1. The Story of the Moors in Spain...
-      Checked: 2026-02-22 05:27:35 | Status: active
-   2. Ueber Die Lehre Des Aristoteles Von Der Ewigkeit D...
-      Checked: 2026-02-22 05:27:35 | Status: active
-   3. What Happened to You?...
-      Checked: 2026-02-22 05:27:35 | Status: active
-   4. South America To-Day: A Study of Conditions, Socia...
-      Checked: 2026-02-22 05:27:35 | Status: active
-   5. The Wolf in the Whale...
-      Checked: 2026-02-22 05:27:35 | Status: active
-   6. El Poder De La Impotencia: Drama En Tres Actos Y E...
-      Checked: 2026-02-22 05:27:35 | Status: active
-   7. Informe sobre la cuestión de validez del tratado d...
-      Checked: 2026-02-22 05:27:35 | Status: active
-   8. Smoke...
-      Checked: 2026-02-22 05:27:33 | Status: active
-   9. Frozen: Anna, Elsa, and the Enchanting Holiday...
-      Checked: 2026-02-22 05:27:32 | Status: active
-   10. Portugués vocabulario - palabras mas usadas - Espa...
-      Checked: 2026-02-22 05:27:32 | Status: active
+   1. Lithuanian Studies without Borders: Violence and t...
+      Checked: 2026-03-01 05:49:44 | Status: active
+   2. Taza de Cerámica Apilable, Diseño Cat Lover, Rosa...
+      Checked: 2026-03-01 05:49:41 | Status: active
+   3. The Cat in the Tux...
+      Checked: 2026-03-01 05:49:40 | Status: active
+   4. Estuche Plástico para Esponja de Maquillaje...
+      Checked: 2026-03-01 05:49:40 | Status: active
+   5. All Inn Thyme...
+      Checked: 2026-03-01 05:49:40 | Status: active
+   6. What's In Dr. Serpenstine's Lab?...
+      Checked: 2026-03-01 05:49:40 | Status: active
+   7. Horno Microondas de Convección 1.5 Pies Cubicos, C...
+      Checked: 2026-03-01 05:49:40 | Status: active
+   8. A Taxing Problem: The Psychologist's Prescription ...
+      Checked: 2026-03-01 05:49:38 | Status: active
+   9. Falling Inn Love...
+      Checked: 2026-03-01 05:49:37 | Status: active
+   10. Bull Sh*t with Cream on It: A Leadership Memoir...
+      Checked: 2026-03-01 05:49:37 | Status: active
 
 🎨 PRODUCTOS CON MÚLTIPLES VARIANTES:
    Total productos con múltiples variantes: Encontrados
@@ -46,41 +46,41 @@ Fecha: 2026-02-22T05:28:33.180Z
    5. Cubo Largo Hexagonal Espiga 3/8", 3/8"... (19 variantes)
    6. Tocadiscos 4 en 1 Bluetooth The Journey, Vsc-550bt... (19 variantes)
    7. Control Inalámbrico Dualsense PlayStation 5 PS5, B... (18 variantes)
-   8. Vaso Térmico de Acero Inoxidable Freedom, 30 Oz, A... (17 variantes)
-   9. Llave Corofija, 6 mm... (16 variantes)
-   10. Vaso Térmico de Acero Inoxidable, 20 Oz, Rosa... (16 variantes)
+   8. Cubo Espiga Hexagonal 1/2", 08 mm... (18 variantes)
+   9. Vaso Térmico de Acero Inoxidable Freedom, 30 Oz, A... (17 variantes)
+   10. Llave Corofija, 6 mm... (16 variantes)
 
 🔍 PRODUCTOS DE PRUEBA:
 
    ✅ Xiaomi Redmi Buds 6 Play:
       Status: active
-      Last check: 2026-02-22 05:17:08
+      Last check: 2026-02-28 05:13:11
       Variantes: 4
          1. Blanco (SKU: UM008OXG, Stock: N/A)
-         2. Negro (SKU: MBP-9248, Stock: 10)
+         2. Negro (SKU: MBP-9248, Stock: -11)
          3. Azul (SKU: UM00RILM, Stock: N/A)
          4. Rosa (SKU: UM00BMML, Stock: N/A)
 
    ✅ Xiaomi Redmi Buds 6 Active:
       Status: active
-      Last check: 2026-02-21 05:20:58
+      Last check: 2026-02-28 05:43:12
       Variantes: 4
-         1. Negro (SKU: UM00E1IQ, Stock: 2044)
-         2. Blanco (SKU: UM00Z149, Stock: 888)
+         1. Negro (SKU: UM00E1IQ, Stock: 1900)
+         2. Blanco (SKU: UM00Z149, Stock: 882)
          3. Celeste (SKU: UM00OCE9, Stock: N/A)
          4. Rosa (SKU: UM00DEL0, Stock: N/A)
 
    ✅ Coby Freidora:
       Status: active
-      Last check: 2026-02-21 05:21:09
+      Last check: 2026-02-28 05:43:23
       Variantes: 1
-         1. Coby Freidora de Aire Digital Doble Canasta 8 Litros (CY-AIRF-D8LDH-DG-BK-W) (SKU: 10447722134, Stock: 15)
+         1. Coby Freidora de Aire Digital Doble Canasta 8 Litros (CY-AIRF-D8LDH-DG-BK-W) (SKU: 10447722134, Stock: 61)
 
 📦 ANÁLISIS DE STOCK:
-   Total variantes: 87860
-   Con stock: 76220 (86.8%)
+   Total variantes: 103020
+   Con stock: 87934 (85.4%)
    Sin stock (0): 0 (0.0%)
-   Stock NULL: 11593 (13.2%)
+   Stock NULL: 15027 (14.6%)
 
 ======================================================================
 ✅ Reporte completado
