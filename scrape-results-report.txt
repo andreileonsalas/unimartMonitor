@@ -1,86 +1,86 @@
 📊 REPORTE POST-SCRAPE: Resultados del Scraping
 ======================================================================
-Fecha: 2026-03-01T05:50:42.760Z
+Fecha: 2026-03-08T06:00:43.107Z
 
 📈 ESTADÍSTICAS GENERALES:
-   Total productos: 84659
-   Total variantes: 103020
-   Total precios: 1527554
-   Productos activos: 1526485
-   Productos 404: 1072
+   Total productos: 98787
+   Total variantes: 120108
+   Total precios: 2221315
+   Productos activos: 2220415
+   Productos 404: 902
    Ratio variantes/producto: 1.22
 
 🆕 PRODUCTOS ACTUALIZADOS (últimas 24 horas):
-   Productos checkeados: 38078
+   Productos checkeados: 65869
 
    Top 10 más recientes:
-   1. Lithuanian Studies without Borders: Violence and t...
-      Checked: 2026-03-01 05:49:44 | Status: active
-   2. Taza de Cerámica Apilable, Diseño Cat Lover, Rosa...
-      Checked: 2026-03-01 05:49:41 | Status: active
-   3. The Cat in the Tux...
-      Checked: 2026-03-01 05:49:40 | Status: active
-   4. Estuche Plástico para Esponja de Maquillaje...
-      Checked: 2026-03-01 05:49:40 | Status: active
-   5. All Inn Thyme...
-      Checked: 2026-03-01 05:49:40 | Status: active
-   6. What's In Dr. Serpenstine's Lab?...
-      Checked: 2026-03-01 05:49:40 | Status: active
-   7. Horno Microondas de Convección 1.5 Pies Cubicos, C...
-      Checked: 2026-03-01 05:49:40 | Status: active
-   8. A Taxing Problem: The Psychologist's Prescription ...
-      Checked: 2026-03-01 05:49:38 | Status: active
-   9. Falling Inn Love...
-      Checked: 2026-03-01 05:49:37 | Status: active
-   10. Bull Sh*t with Cream on It: A Leadership Memoir...
-      Checked: 2026-03-01 05:49:37 | Status: active
+   1. Adaptador USB-A a USB-C/USB-C a USB-A (OTG), FADOT...
+      Checked: 2026-03-08 05:59:37 | Status: active
+   2. Cable HDMI a HDMI Negro, 3 Metros...
+      Checked: 2026-03-08 05:59:37 | Status: active
+   3. Set Paños de Microfibra Premium 80/20, 12 Unidades...
+      Checked: 2026-03-08 05:59:37 | Status: active
+   4. Paño Microfibra Tipo Mayordomo, 9 Metros, Verde...
+      Checked: 2026-03-08 05:59:37 | Status: active
+   5. Teléfono Celular Galaxy Z Fold 7, 256GB, Azul Oscu...
+      Checked: 2026-03-08 05:59:36 | Status: active
+   6. Paño Microfibra Premium para Piso 67x67cm, Naranja...
+      Checked: 2026-03-08 05:59:36 | Status: active
+   7. Pantalla 55" QLED Q7F 4K Smart, QN55Q7FAAPXPA + Gr...
+      Checked: 2026-03-08 05:59:36 | Status: active
+   8. Cable de Red CAT 5e Gris 15m, FAN50115001C...
+      Checked: 2026-03-08 05:59:36 | Status: active
+   9. Adaptador DisplayPort a VGA 0.15m, FAA321DV001C...
+      Checked: 2026-03-08 05:59:36 | Status: active
+   10. Cable USB-C a Lightning 1m, FAD30910001C...
+      Checked: 2026-03-08 05:59:36 | Status: active
 
 🎨 PRODUCTOS CON MÚLTIPLES VARIANTES:
    Total productos con múltiples variantes: Encontrados
 
    Top 10 con más variantes:
-   1. Pintura Aerosol, 8 oz, Negro Mate... (26 variantes)
-   2. Cubo Corto Hexagonal Espiga 3/8", 9/16"... (25 variantes)
-   3. Cubo Espiga 1/2" Hexagonal, 8 Mm... (24 variantes)
-   4. Salsa Cero Calorías, Maple... (22 variantes)
-   5. Cubo Largo Hexagonal Espiga 3/8", 3/8"... (19 variantes)
-   6. Tocadiscos 4 en 1 Bluetooth The Journey, Vsc-550bt... (19 variantes)
-   7. Control Inalámbrico Dualsense PlayStation 5 PS5, B... (18 variantes)
-   8. Cubo Espiga Hexagonal 1/2", 08 mm... (18 variantes)
-   9. Vaso Térmico de Acero Inoxidable Freedom, 30 Oz, A... (17 variantes)
-   10. Llave Corofija, 6 mm... (16 variantes)
+   1. Pintura Spray, 450 ML, Cromo... (35 variantes)
+   2. Pintura Aerosol, 8 oz, Negro Mate... (26 variantes)
+   3. Cubo Corto Hexagonal Espiga 3/8", 9/16"... (25 variantes)
+   4. Cubo Espiga 1/2" Hexagonal, 8 Mm... (24 variantes)
+   5. Salsa Cero Calorías, Maple... (22 variantes)
+   6. Cubo Largo Hexagonal Espiga 3/8", 3/8"... (19 variantes)
+   7. Tocadiscos 4 en 1 Bluetooth The Journey, Vsc-550bt... (19 variantes)
+   8. Control Inalámbrico Dualsense PlayStation 5 PS5, B... (18 variantes)
+   9. Cubo Espiga Hexagonal 1/2", 08 mm... (18 variantes)
+   10. Vaso Térmico de Acero Inoxidable Freedom, 30 Oz, A... (17 variantes)
 
 🔍 PRODUCTOS DE PRUEBA:
 
    ✅ Xiaomi Redmi Buds 6 Play:
       Status: active
-      Last check: 2026-02-28 05:13:11
+      Last check: 2026-03-08 05:20:42
       Variantes: 4
          1. Blanco (SKU: UM008OXG, Stock: N/A)
-         2. Negro (SKU: MBP-9248, Stock: -11)
+         2. Negro (SKU: MBP-9248, Stock: 1042)
          3. Azul (SKU: UM00RILM, Stock: N/A)
          4. Rosa (SKU: UM00BMML, Stock: N/A)
 
    ✅ Xiaomi Redmi Buds 6 Active:
       Status: active
-      Last check: 2026-02-28 05:43:12
+      Last check: 2026-03-08 05:47:43
       Variantes: 4
-         1. Negro (SKU: UM00E1IQ, Stock: 1900)
-         2. Blanco (SKU: UM00Z149, Stock: 882)
+         1. Negro (SKU: UM00E1IQ, Stock: 1807)
+         2. Blanco (SKU: UM00Z149, Stock: 836)
          3. Celeste (SKU: UM00OCE9, Stock: N/A)
          4. Rosa (SKU: UM00DEL0, Stock: N/A)
 
    ✅ Coby Freidora:
       Status: active
-      Last check: 2026-02-28 05:43:23
+      Last check: 2026-03-08 05:47:52
       Variantes: 1
-         1. Coby Freidora de Aire Digital Doble Canasta 8 Litros (CY-AIRF-D8LDH-DG-BK-W) (SKU: 10447722134, Stock: 61)
+         1. Coby Freidora de Aire Digital Doble Canasta 8 Litros (CY-AIRF-D8LDH-DG-BK-W) (SKU: 10447722134, Stock: 83)
 
 📦 ANÁLISIS DE STOCK:
-   Total variantes: 103020
-   Con stock: 87934 (85.4%)
+   Total variantes: 120108
+   Con stock: 101084 (84.2%)
    Sin stock (0): 0 (0.0%)
-   Stock NULL: 15027 (14.6%)
+   Stock NULL: 18824 (15.7%)
 
 ======================================================================
 ✅ Reporte completado
