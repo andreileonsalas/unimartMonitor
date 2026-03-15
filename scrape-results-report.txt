@@ -1,39 +1,39 @@
 📊 REPORTE POST-SCRAPE: Resultados del Scraping
 ======================================================================
-Fecha: 2026-03-08T06:00:43.107Z
+Fecha: 2026-03-15T05:59:05.167Z
 
 📈 ESTADÍSTICAS GENERALES:
-   Total productos: 98787
-   Total variantes: 120108
-   Total precios: 2221315
-   Productos activos: 2220415
-   Productos 404: 902
+   Total productos: 101694
+   Total variantes: 123647
+   Total precios: 2989803
+   Productos activos: 2988760
+   Productos 404: 1045
    Ratio variantes/producto: 1.22
 
 🆕 PRODUCTOS ACTUALIZADOS (últimas 24 horas):
-   Productos checkeados: 65869
+   Productos checkeados: 63204
 
    Top 10 más recientes:
-   1. Adaptador USB-A a USB-C/USB-C a USB-A (OTG), FADOT...
-      Checked: 2026-03-08 05:59:37 | Status: active
-   2. Cable HDMI a HDMI Negro, 3 Metros...
-      Checked: 2026-03-08 05:59:37 | Status: active
-   3. Set Paños de Microfibra Premium 80/20, 12 Unidades...
-      Checked: 2026-03-08 05:59:37 | Status: active
-   4. Paño Microfibra Tipo Mayordomo, 9 Metros, Verde...
-      Checked: 2026-03-08 05:59:37 | Status: active
-   5. Teléfono Celular Galaxy Z Fold 7, 256GB, Azul Oscu...
-      Checked: 2026-03-08 05:59:36 | Status: active
-   6. Paño Microfibra Premium para Piso 67x67cm, Naranja...
-      Checked: 2026-03-08 05:59:36 | Status: active
-   7. Pantalla 55" QLED Q7F 4K Smart, QN55Q7FAAPXPA + Gr...
-      Checked: 2026-03-08 05:59:36 | Status: active
-   8. Cable de Red CAT 5e Gris 15m, FAN50115001C...
-      Checked: 2026-03-08 05:59:36 | Status: active
-   9. Adaptador DisplayPort a VGA 0.15m, FAA321DV001C...
-      Checked: 2026-03-08 05:59:36 | Status: active
-   10. Cable USB-C a Lightning 1m, FAD30910001C...
-      Checked: 2026-03-08 05:59:36 | Status: active
+   1. Dunas Desnudas...
+      Checked: 2026-03-15 05:57:55 | Status: active
+   2. Osborne Russell's Journal of a Trapper:: Edited fr...
+      Checked: 2026-03-15 05:57:55 | Status: active
+   3. Let's Go!: Benjamin Orr and The Cars...
+      Checked: 2026-03-15 05:57:55 | Status: active
+   4. Black Box: The Memoir That Sparked Japan's #Metoo ...
+      Checked: 2026-03-15 05:57:55 | Status: active
+   5. Chepita...
+      Checked: 2026-03-15 05:57:55 | Status: active
+   6. Not for You: Pearl Jam and the Present Tense...
+      Checked: 2026-03-15 05:57:55 | Status: active
+   7. Science: The Definitive Visual Guide...
+      Checked: 2026-03-15 05:57:54 | Status: active
+   8. Bajo la influencia de Saturno...
+      Checked: 2026-03-15 05:57:54 | Status: active
+   9. Alan Turing: The Enigma: The Book That Inspired th...
+      Checked: 2026-03-15 05:57:53 | Status: active
+   10. If I Die in a Combat Zone: Box Me Up and Ship Me H...
+      Checked: 2026-03-15 05:57:53 | Status: active
 
 🎨 PRODUCTOS CON MÚLTIPLES VARIANTES:
    Total productos con múltiples variantes: Encontrados
@@ -54,33 +54,33 @@ Fecha: 2026-03-08T06:00:43.107Z
 
    ✅ Xiaomi Redmi Buds 6 Play:
       Status: active
-      Last check: 2026-03-08 05:20:42
+      Last check: 2026-03-14 06:22:14
       Variantes: 4
          1. Blanco (SKU: UM008OXG, Stock: N/A)
-         2. Negro (SKU: MBP-9248, Stock: 1042)
+         2. Negro (SKU: MBP-9248, Stock: 982)
          3. Azul (SKU: UM00RILM, Stock: N/A)
          4. Rosa (SKU: UM00BMML, Stock: N/A)
 
    ✅ Xiaomi Redmi Buds 6 Active:
       Status: active
-      Last check: 2026-03-08 05:47:43
+      Last check: 2026-03-14 05:28:45
       Variantes: 4
-         1. Negro (SKU: UM00E1IQ, Stock: 1807)
-         2. Blanco (SKU: UM00Z149, Stock: 836)
+         1. Negro (SKU: UM00E1IQ, Stock: 72)
+         2. Blanco (SKU: UM00Z149, Stock: 834)
          3. Celeste (SKU: UM00OCE9, Stock: N/A)
          4. Rosa (SKU: UM00DEL0, Stock: N/A)
 
    ✅ Coby Freidora:
       Status: active
-      Last check: 2026-03-08 05:47:52
+      Last check: 2026-03-14 05:28:53
       Variantes: 1
-         1. Coby Freidora de Aire Digital Doble Canasta 8 Litros (CY-AIRF-D8LDH-DG-BK-W) (SKU: 10447722134, Stock: 83)
+         1. Coby Freidora de Aire Digital Doble Canasta 8 Litros (CY-AIRF-D8LDH-DG-BK-W) (SKU: 10447722134, Stock: 82)
 
 📦 ANÁLISIS DE STOCK:
-   Total variantes: 120108
-   Con stock: 101084 (84.2%)
+   Total variantes: 123647
+   Con stock: 102272 (82.7%)
    Sin stock (0): 0 (0.0%)
-   Stock NULL: 18824 (15.7%)
+   Stock NULL: 21156 (17.1%)
 
 ======================================================================
 ✅ Reporte completado
