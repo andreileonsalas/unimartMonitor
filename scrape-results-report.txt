@@ -1,39 +1,39 @@
 📊 REPORTE POST-SCRAPE: Resultados del Scraping
 ======================================================================
-Fecha: 2026-03-15T05:59:05.167Z
+Fecha: 2026-03-22T06:09:27.731Z
 
 📈 ESTADÍSTICAS GENERALES:
-   Total productos: 101694
-   Total variantes: 123647
-   Total precios: 2989803
-   Productos activos: 2988760
-   Productos 404: 1045
-   Ratio variantes/producto: 1.22
+   Total productos: 105647
+   Total variantes: 128040
+   Total precios: 3799475
+   Productos activos: 3794219
+   Productos 404: 5258
+   Ratio variantes/producto: 1.21
 
 🆕 PRODUCTOS ACTUALIZADOS (últimas 24 horas):
-   Productos checkeados: 63204
+   Productos checkeados: 64815
 
    Top 10 más recientes:
-   1. Dunas Desnudas...
-      Checked: 2026-03-15 05:57:55 | Status: active
-   2. Osborne Russell's Journal of a Trapper:: Edited fr...
-      Checked: 2026-03-15 05:57:55 | Status: active
-   3. Let's Go!: Benjamin Orr and The Cars...
-      Checked: 2026-03-15 05:57:55 | Status: active
-   4. Black Box: The Memoir That Sparked Japan's #Metoo ...
-      Checked: 2026-03-15 05:57:55 | Status: active
-   5. Chepita...
-      Checked: 2026-03-15 05:57:55 | Status: active
-   6. Not for You: Pearl Jam and the Present Tense...
-      Checked: 2026-03-15 05:57:55 | Status: active
-   7. Science: The Definitive Visual Guide...
-      Checked: 2026-03-15 05:57:54 | Status: active
-   8. Bajo la influencia de Saturno...
-      Checked: 2026-03-15 05:57:54 | Status: active
-   9. Alan Turing: The Enigma: The Book That Inspired th...
-      Checked: 2026-03-15 05:57:53 | Status: active
-   10. If I Die in a Combat Zone: Box Me Up and Ship Me H...
-      Checked: 2026-03-15 05:57:53 | Status: active
+   1. What Do I Hear? / ¿Qué Oigo?...
+      Checked: 2026-03-22 06:08:15 | Status: active
+   2. Understanding the Qur'an: Themes and Style...
+      Checked: 2026-03-22 06:08:15 | Status: active
+   3. Dr Jekyll and MR Hyde...
+      Checked: 2026-03-22 06:08:15 | Status: active
+   4. Cook It!...
+      Checked: 2026-03-22 06:08:15 | Status: active
+   5. Never Touch a Shark!...
+      Checked: 2026-03-22 06:08:15 | Status: active
+   6. Peter Pan...
+      Checked: 2026-03-22 06:08:15 | Status: active
+   7. Going Out: American Sign Language...
+      Checked: 2026-03-22 06:08:15 | Status: active
+   8. The 12 Stages of Healing: A Network Approach to Wh...
+      Checked: 2026-03-22 06:08:15 | Status: active
+   9. Universal Declaration of Human Rights: Proclaimed ...
+      Checked: 2026-03-22 06:08:15 | Status: active
+   10. Moby Dick...
+      Checked: 2026-03-22 06:08:15 | Status: active
 
 🎨 PRODUCTOS CON MÚLTIPLES VARIANTES:
    Total productos con múltiples variantes: Encontrados
@@ -54,33 +54,33 @@ Fecha: 2026-03-15T05:59:05.167Z
 
    ✅ Xiaomi Redmi Buds 6 Play:
       Status: active
-      Last check: 2026-03-14 06:22:14
+      Last check: 2026-03-21 05:53:53
       Variantes: 4
          1. Blanco (SKU: UM008OXG, Stock: N/A)
-         2. Negro (SKU: MBP-9248, Stock: 982)
+         2. Negro (SKU: MBP-9248, Stock: N/A)
          3. Azul (SKU: UM00RILM, Stock: N/A)
          4. Rosa (SKU: UM00BMML, Stock: N/A)
 
    ✅ Xiaomi Redmi Buds 6 Active:
       Status: active
-      Last check: 2026-03-14 05:28:45
+      Last check: 2026-03-21 05:16:31
       Variantes: 4
-         1. Negro (SKU: UM00E1IQ, Stock: 72)
-         2. Blanco (SKU: UM00Z149, Stock: 834)
+         1. Negro (SKU: UM00E1IQ, Stock: 1381)
+         2. Blanco (SKU: UM00Z149, Stock: 790)
          3. Celeste (SKU: UM00OCE9, Stock: N/A)
          4. Rosa (SKU: UM00DEL0, Stock: N/A)
 
    ✅ Coby Freidora:
       Status: active
-      Last check: 2026-03-14 05:28:53
+      Last check: 2026-03-21 05:16:40
       Variantes: 1
          1. Coby Freidora de Aire Digital Doble Canasta 8 Litros (CY-AIRF-D8LDH-DG-BK-W) (SKU: 10447722134, Stock: 82)
 
 📦 ANÁLISIS DE STOCK:
-   Total variantes: 123647
-   Con stock: 102272 (82.7%)
+   Total variantes: 128040
+   Con stock: 104279 (81.4%)
    Sin stock (0): 0 (0.0%)
-   Stock NULL: 21156 (17.1%)
+   Stock NULL: 23538 (18.4%)
 
 ======================================================================
 ✅ Reporte completado
