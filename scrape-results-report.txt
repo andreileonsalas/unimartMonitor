@@ -1,39 +1,39 @@
 📊 REPORTE POST-SCRAPE: Resultados del Scraping
 ======================================================================
-Fecha: 2026-03-22T06:09:27.731Z
+Fecha: 2026-03-29T06:36:08.433Z
 
 📈 ESTADÍSTICAS GENERALES:
-   Total productos: 105647
-   Total variantes: 128040
-   Total precios: 3799475
-   Productos activos: 3794219
-   Productos 404: 5258
-   Ratio variantes/producto: 1.21
+   Total productos: 108311
+   Total variantes: 131694
+   Total precios: 4645706
+   Productos activos: 4641610
+   Productos 404: 4096
+   Ratio variantes/producto: 1.22
 
 🆕 PRODUCTOS ACTUALIZADOS (últimas 24 horas):
-   Productos checkeados: 64815
+   Productos checkeados: 67800
 
    Top 10 más recientes:
-   1. What Do I Hear? / ¿Qué Oigo?...
-      Checked: 2026-03-22 06:08:15 | Status: active
-   2. Understanding the Qur'an: Themes and Style...
-      Checked: 2026-03-22 06:08:15 | Status: active
-   3. Dr Jekyll and MR Hyde...
-      Checked: 2026-03-22 06:08:15 | Status: active
-   4. Cook It!...
-      Checked: 2026-03-22 06:08:15 | Status: active
-   5. Never Touch a Shark!...
-      Checked: 2026-03-22 06:08:15 | Status: active
-   6. Peter Pan...
-      Checked: 2026-03-22 06:08:15 | Status: active
-   7. Going Out: American Sign Language...
-      Checked: 2026-03-22 06:08:15 | Status: active
-   8. The 12 Stages of Healing: A Network Approach to Wh...
-      Checked: 2026-03-22 06:08:15 | Status: active
-   9. Universal Declaration of Human Rights: Proclaimed ...
-      Checked: 2026-03-22 06:08:15 | Status: active
-   10. Moby Dick...
-      Checked: 2026-03-22 06:08:15 | Status: active
+   1. Perfume Z25 Parfum 100 ml, Unisex...
+      Checked: 2026-03-29 06:34:27 | Status: active
+   2. Perfume Z33 Parfum DEP 100 ml, Unisex...
+      Checked: 2026-03-29 06:34:26 | Status: active
+   3. Taladro Rotomartillo Inalámbrico 24mm (15/16") 20V...
+      Checked: 2026-03-29 06:34:26 | Status: active
+   4. Laptop 15.6" Gaming LOQ 15AHP10, 83JG00APGJ...
+      Checked: 2026-03-29 06:34:26 | Status: active
+   5. Perfume Fakhar Extrait Gold para Mujer, 100 ml...
+      Checked: 2026-03-29 06:34:25 | Status: active
+   6. Perfume Pure Grace Pearl EDP 100 ml, Unisex...
+      Checked: 2026-03-29 06:34:25 | Status: active
+   7. Set Contenedores Herméticos con Bomba Eléctrico al...
+      Checked: 2026-03-29 06:34:25 | Status: active
+   8. Perfume Fakhar Eau de Parfum para Mujer, 100 ml...
+      Checked: 2026-03-29 06:34:25 | Status: active
+   9. Cable de Carga USB-A a USB C 322, A81H6H11...
+      Checked: 2026-03-29 06:34:25 | Status: active
+   10. Perfume Z12 Parfum EDP 100 ml, para Mujer...
+      Checked: 2026-03-29 06:34:25 | Status: active
 
 🎨 PRODUCTOS CON MÚLTIPLES VARIANTES:
    Total productos con múltiples variantes: Encontrados
@@ -42,7 +42,7 @@ Fecha: 2026-03-22T06:09:27.731Z
    1. Pintura Spray, 450 ML, Cromo... (35 variantes)
    2. Pintura Aerosol, 8 oz, Negro Mate... (26 variantes)
    3. Cubo Corto Hexagonal Espiga 3/8", 9/16"... (25 variantes)
-   4. Cubo Espiga 1/2" Hexagonal, 8 Mm... (24 variantes)
+   4. Cubo Espiga 1/2" Hexagonal, 19 Mm... (24 variantes)
    5. Salsa Cero Calorías, Maple... (22 variantes)
    6. Cubo Largo Hexagonal Espiga 3/8", 3/8"... (19 variantes)
    7. Tocadiscos 4 en 1 Bluetooth The Journey, Vsc-550bt... (19 variantes)
@@ -54,33 +54,33 @@ Fecha: 2026-03-22T06:09:27.731Z
 
    ✅ Xiaomi Redmi Buds 6 Play:
       Status: active
-      Last check: 2026-03-21 05:53:53
+      Last check: 2026-03-29 05:53:22
       Variantes: 4
          1. Blanco (SKU: UM008OXG, Stock: N/A)
-         2. Negro (SKU: MBP-9248, Stock: N/A)
+         2. Negro (SKU: MBP-9248, Stock: 8)
          3. Azul (SKU: UM00RILM, Stock: N/A)
          4. Rosa (SKU: UM00BMML, Stock: N/A)
 
    ✅ Xiaomi Redmi Buds 6 Active:
       Status: active
-      Last check: 2026-03-21 05:16:31
+      Last check: 2026-03-29 06:19:55
       Variantes: 4
-         1. Negro (SKU: UM00E1IQ, Stock: 1381)
-         2. Blanco (SKU: UM00Z149, Stock: 790)
+         1. Negro (SKU: UM00E1IQ, Stock: 27)
+         2. Blanco (SKU: UM00Z149, Stock: 733)
          3. Celeste (SKU: UM00OCE9, Stock: N/A)
          4. Rosa (SKU: UM00DEL0, Stock: N/A)
 
    ✅ Coby Freidora:
       Status: active
-      Last check: 2026-03-21 05:16:40
+      Last check: 2026-03-29 06:20:04
       Variantes: 1
-         1. Coby Freidora de Aire Digital Doble Canasta 8 Litros (CY-AIRF-D8LDH-DG-BK-W) (SKU: 10447722134, Stock: 82)
+         1. Coby Freidora de Aire Digital Doble Canasta 8 Litros (CY-AIRF-D8LDH-DG-BK-W) (SKU: 10447722134, Stock: N/A)
 
 📦 ANÁLISIS DE STOCK:
-   Total variantes: 128040
-   Con stock: 104279 (81.4%)
+   Total variantes: 131694
+   Con stock: 98469 (74.8%)
    Sin stock (0): 0 (0.0%)
-   Stock NULL: 23538 (18.4%)
+   Stock NULL: 33001 (25.1%)
 
 ======================================================================
 ✅ Reporte completado
