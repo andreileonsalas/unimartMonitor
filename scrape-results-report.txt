@@ -1,39 +1,39 @@
 📊 REPORTE POST-SCRAPE: Resultados del Scraping
 ======================================================================
-Fecha: 2026-03-29T06:36:08.433Z
+Fecha: 2026-04-05T06:30:57.697Z
 
 📈 ESTADÍSTICAS GENERALES:
-   Total productos: 108311
-   Total variantes: 131694
-   Total precios: 4645706
-   Productos activos: 4641610
-   Productos 404: 4096
+   Total productos: 109509
+   Total variantes: 133178
+   Total precios: 5376121
+   Productos activos: 5371494
+   Productos 404: 4627
    Ratio variantes/producto: 1.22
 
 🆕 PRODUCTOS ACTUALIZADOS (últimas 24 horas):
-   Productos checkeados: 67800
+   Productos checkeados: 59835
 
    Top 10 más recientes:
-   1. Perfume Z25 Parfum 100 ml, Unisex...
-      Checked: 2026-03-29 06:34:27 | Status: active
-   2. Perfume Z33 Parfum DEP 100 ml, Unisex...
-      Checked: 2026-03-29 06:34:26 | Status: active
-   3. Taladro Rotomartillo Inalámbrico 24mm (15/16") 20V...
-      Checked: 2026-03-29 06:34:26 | Status: active
-   4. Laptop 15.6" Gaming LOQ 15AHP10, 83JG00APGJ...
-      Checked: 2026-03-29 06:34:26 | Status: active
-   5. Perfume Fakhar Extrait Gold para Mujer, 100 ml...
-      Checked: 2026-03-29 06:34:25 | Status: active
-   6. Perfume Pure Grace Pearl EDP 100 ml, Unisex...
-      Checked: 2026-03-29 06:34:25 | Status: active
-   7. Set Contenedores Herméticos con Bomba Eléctrico al...
-      Checked: 2026-03-29 06:34:25 | Status: active
-   8. Perfume Fakhar Eau de Parfum para Mujer, 100 ml...
-      Checked: 2026-03-29 06:34:25 | Status: active
-   9. Cable de Carga USB-A a USB C 322, A81H6H11...
-      Checked: 2026-03-29 06:34:25 | Status: active
-   10. Perfume Z12 Parfum EDP 100 ml, para Mujer...
-      Checked: 2026-03-29 06:34:25 | Status: active
+   1. Guante de Pesas Sirena, M, Turquesa...
+      Checked: 2026-04-05 06:29:20 | Status: active
+   2. Cámara de Seguridad Smart 2K UHD C302, 73114...
+      Checked: 2026-04-05 06:29:20 | Status: active
+   3. Botella Plástica Tritán, 850ml, Turquesa...
+      Checked: 2026-04-05 06:29:20 | Status: active
+   4. Guante de Pesas Sirena, Coral, S...
+      Checked: 2026-04-05 06:29:20 | Status: active
+   5. Raqueta de Tenis Energy 27 Griid 4 1/4...
+      Checked: 2026-04-05 06:29:18 | Status: active
+   6. Botella de Acero Inoxidable Everyday 2, 900 ml, Pú...
+      Checked: 2026-04-05 06:29:18 | Status: active
+   7. Saco de Boxeo Polycanva 60 Lb...
+      Checked: 2026-04-05 06:29:18 | Status: active
+   8. Lonchera Insulada 7, Negro...
+      Checked: 2026-04-05 06:29:18 | Status: active
+   9. Kettelbell de Plástico 10 Lb...
+      Checked: 2026-04-05 06:29:18 | Status: active
+   10. Guante de Pesas Mask, Verde...
+      Checked: 2026-04-05 06:29:18 | Status: active
 
 🎨 PRODUCTOS CON MÚLTIPLES VARIANTES:
    Total productos con múltiples variantes: Encontrados
@@ -54,33 +54,33 @@ Fecha: 2026-03-29T06:36:08.433Z
 
    ✅ Xiaomi Redmi Buds 6 Play:
       Status: active
-      Last check: 2026-03-29 05:53:22
+      Last check: 2026-04-05 05:52:43
       Variantes: 4
          1. Blanco (SKU: UM008OXG, Stock: N/A)
-         2. Negro (SKU: MBP-9248, Stock: 8)
+         2. Negro (SKU: MBP-9248, Stock: N/A)
          3. Azul (SKU: UM00RILM, Stock: N/A)
          4. Rosa (SKU: UM00BMML, Stock: N/A)
 
    ✅ Xiaomi Redmi Buds 6 Active:
       Status: active
-      Last check: 2026-03-29 06:19:55
+      Last check: 2026-04-05 06:14:07
       Variantes: 4
-         1. Negro (SKU: UM00E1IQ, Stock: 27)
-         2. Blanco (SKU: UM00Z149, Stock: 733)
+         1. Negro (SKU: UM00E1IQ, Stock: 23)
+         2. Blanco (SKU: UM00Z149, Stock: 705)
          3. Celeste (SKU: UM00OCE9, Stock: N/A)
          4. Rosa (SKU: UM00DEL0, Stock: N/A)
 
    ✅ Coby Freidora:
       Status: active
-      Last check: 2026-03-29 06:20:04
+      Last check: 2026-04-05 06:14:17
       Variantes: 1
          1. Coby Freidora de Aire Digital Doble Canasta 8 Litros (CY-AIRF-D8LDH-DG-BK-W) (SKU: 10447722134, Stock: N/A)
 
 📦 ANÁLISIS DE STOCK:
-   Total variantes: 131694
-   Con stock: 98469 (74.8%)
+   Total variantes: 133178
+   Con stock: 97967 (73.6%)
    Sin stock (0): 0 (0.0%)
-   Stock NULL: 33001 (25.1%)
+   Stock NULL: 34985 (26.3%)
 
 ======================================================================
 ✅ Reporte completado
