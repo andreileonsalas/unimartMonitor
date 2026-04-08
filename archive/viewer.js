@@ -29,7 +29,7 @@ async function loadDatabase() {
     // Descargar y descomprimir la DB
     console.log('[viewer2] Fetching prices.db.gz...');
     const response = await Promise.race([
-      fetch('prices.db.gz'),
+      fetch('../prices.db.gz'),
       fetchTimeout
     ]);
     
@@ -197,7 +197,7 @@ function handleWorkerMessage(e) {
     break;
 			
   case 'PRICE_HISTORY_RESULT':
-    displayPriceHistory(data.variantId, data.history, data.isRangeSchema);
+    displayPriceHistory(data.variantId, data.history);
     break;
 			
   case 'ERROR':
@@ -224,42 +224,21 @@ function toggleVariantDetails(variantId) {
   });
 }
 
-function displayPriceHistory(variantId, history, isRangeSchema) {
+function displayPriceHistory(variantId, history) {
   const chartContainer = document.getElementById(`chart-${variantId}`);
 	
   if (history.length === 0) {
     chartContainer.innerHTML = '<p>No price history available</p>';
     return;
   }
-
-  // Construir puntos del gráfico según el schema
-  let chartPoints = [];
-  if (isRangeSchema) {
-    // Schema nuevo: cada rango genera un punto al inicio y al final (step chart)
-    const todayStr = new Date().toISOString().slice(0, 10);
-    history.forEach(h => {
-      const price = h[0];
-      const start = h[2];
-      const end = h[3] || todayStr;
-      chartPoints.push({ date: new Date(start + 'T00:00:00'), price });
-      chartPoints.push({ date: new Date(end + 'T00:00:00'), price });
-    });
-    // Eliminar puntos duplicados consecutivos con misma fecha
-    chartPoints = chartPoints.filter((pt, idx, arr) =>
-      idx === 0 || pt.date.getTime() !== arr[idx - 1].date.getTime() || pt.price !== arr[idx - 1].price
-    );
-  } else {
-    // Schema antiguo (archivo): un punto por registro
-    chartPoints = history.map(h => ({ price: h[0], date: new Date(h[2]) }));
-  }
-
-  const prices = chartPoints.map(p => p.price);
-  const dates = chartPoints.map(p => p.date);
+	
+  const prices = history.map(h => h[0]);
+  const dates = history.map(h => new Date(h[2]));
   const currency = history[0][1];
   const minPrice = Math.min(...prices);
   const maxPrice = Math.max(...prices);
   const avgPrice = (prices.reduce((a, b) => a + b, 0) / prices.length).toFixed(2);
-  const currentPrice = history[history.length - 1][0];
+  const currentPrice = prices[prices.length - 1];
 	
 
   // Badge si el precio actual es igual al más bajo

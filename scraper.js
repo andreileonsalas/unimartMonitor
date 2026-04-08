@@ -110,19 +110,21 @@ function initDatabase() {
 		UNIQUE(product_id, variant_value),
 			FOREIGN KEY (product_id) REFERENCES products(id)
 		);
-		CREATE TABLE IF NOT EXISTS prices (
+		CREATE TABLE IF NOT EXISTS price_ranges (
 			id INTEGER PRIMARY KEY AUTOINCREMENT,
 			variant_id INTEGER NOT NULL,
 			price REAL,
 			currency TEXT,
-			scraped_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+			start_date TEXT NOT NULL,
+			end_date TEXT,
 			FOREIGN KEY (variant_id) REFERENCES variants(id)
 		);
 		
 		-- Índices para mejorar performance
 		CREATE INDEX IF NOT EXISTS idx_variants_sku ON variants(sku);
 		CREATE INDEX IF NOT EXISTS idx_variants_product_id ON variants(product_id);
-		CREATE INDEX IF NOT EXISTS idx_prices_variant_id ON prices(variant_id);
+		CREATE INDEX IF NOT EXISTS idx_price_ranges_variant_id ON price_ranges(variant_id);
+		CREATE INDEX IF NOT EXISTS idx_price_ranges_open ON price_ranges(variant_id, end_date);
 	`);
   
   // Agregar columnas status y last_check si no existen (para bases de datos migradas)	// Agregar columna shopify_gid si no existe
@@ -434,7 +436,60 @@ async function scrapeSimpleProduct(url) {
   }
 }
 
-async function scrapeAndSave(db, url) {
+/**
+ * Guarda un precio usando la lógica de rangos.
+ * - Si no hay rango abierto para la variante: crea el primero.
+ * - Si el precio no cambió: no inserta nada (el rango sigue abierto).
+ * - Si el precio cambió: cierra el rango actual y abre uno nuevo.
+ *
+ * @param {Database} db - Base de datos de escritura (segmento o principal)
+ * @param {Database|null} sourceDb - BD principal de solo lectura (para verificar último precio en modo diario segmentado)
+ * @param {number} variantId - ID de la variante
+ * @param {number} newPrice - Precio recién scrapeado
+ * @param {string} currency - Moneda
+ * @returns {boolean} true si se creó un nuevo rango, false si el precio no cambió
+ */
+function savePriceRange(db, sourceDb, variantId, newPrice, currency) {
+  const today = new Date().toISOString().slice(0, 10); // YYYY-MM-DD
+
+  // Leer el último rango abierto. Si existe sourceDb (modo daily segmentado), consultar ahí también.
+  const queryDb = sourceDb || db;
+  const openRange = queryDb.prepare(
+    'SELECT id, price FROM price_ranges WHERE variant_id = ? AND end_date IS NULL ORDER BY start_date DESC LIMIT 1'
+  ).get(variantId);
+
+  if (!openRange) {
+    // Primera vez que vemos esta variante: crear el rango inicial
+    db.prepare(
+      'INSERT INTO price_ranges (variant_id, price, currency, start_date) VALUES (?, ?, ?, ?)'
+    ).run(variantId, newPrice, currency, today);
+    return true;
+  }
+
+  if (Math.abs(openRange.price - newPrice) < 0.01) {
+    // Precio sin cambio: no hacemos nada
+    return false;
+  }
+
+  // Precio cambió: cerrar el rango anterior y abrir uno nuevo
+  // Cerrar en la BD de escritura (en modo segmentado el rango abierto está en sourceDb,
+  // pero el segmento no debe modificar sourceDb; en su lugar registra el nuevo rango
+  // y el merge se encargará de cerrar el viejo en la BD principal).
+  if (!sourceDb) {
+    // Modo no-segmentado: cerrar directamente en la misma BD
+    db.prepare(
+      'UPDATE price_ranges SET end_date = ? WHERE variant_id = ? AND end_date IS NULL'
+    ).run(today, variantId);
+  }
+
+  // Abrir nuevo rango en la BD de escritura
+  db.prepare(
+    'INSERT INTO price_ranges (variant_id, price, currency, start_date) VALUES (?, ?, ?, ?)'
+  ).run(variantId, newPrice, currency, today);
+  return true;
+}
+
+async function scrapeAndSave(db, url, sourceDb = null) {
   // 🛡️ Verificar si necesitamos esperar por cooldown
   await waitForCooldown();
   
@@ -585,7 +640,7 @@ async function scrapeAndSave(db, url) {
           log.debug(`       ✅ Stock actualizado a: ${v.stock}`);
         }
         
-        // ✅ Guardar precio
+        // ✅ Guardar precio usando rangos
         log.debug('\n       💰 PROCESANDO PRECIO...');
         const variant = db.prepare(`
           SELECT id FROM variants 
@@ -596,21 +651,17 @@ async function scrapeAndSave(db, url) {
           log.debug(`       🎯 Variante encontrada para precio (ID: ${variant.id})`);
           
           if (variantPrice && variantPrice > 0) {
-            log.debug(`       💵 Insertando precio: ₡${variantPrice} CRC`);
-            const insertPrice = db.prepare(`
-						INSERT INTO prices (variant_id, price, currency)
-						VALUES (?, ?, ?)
-					`);
+            log.debug(`       💵 Guardando rango de precio: ₡${variantPrice} CRC`);
             
             try {
-              const priceResult = insertPrice.run(variant.id, variantPrice, 'CRC');
-              log.debug(`       ✅ PRECIO GUARDADO (ID: ${priceResult.lastInsertRowid})`);
+              const saved = savePriceRange(db, sourceDb, variant.id, variantPrice, 'CRC');
+              log.debug(`       ✅ PRECIO ${saved ? 'NUEVO RANGO' : 'SIN CAMBIO'} (variante ID: ${variant.id})`);
               
               // Mostrar precio con información adicional
               const priceDisplay = `₡${variantPrice.toFixed(0).replace(/\B(?=(\d{3})+(?!\d))/g, ',')}`;
               const stockInfo = v.stock ? ` (Stock: ${v.stock})` : '';
               const availability = v.available === false ? ' [AGOTADO]' : '';
-              log.info(`    💰 ${v.title}: ${priceDisplay}${stockInfo}${availability}`);
+              log.info(`    💰 ${v.title}: ${priceDisplay}${saved ? ' (nuevo)' : ' (sin cambio)'}${stockInfo}${availability}`);
               return { success: true, variant: v.title, price: priceDisplay };
             } catch (priceError) {
               log.error(`ERROR guardando precio: ${priceError.message}`);
@@ -647,12 +698,8 @@ async function scrapeAndSave(db, url) {
           baseVariant = { id: result.lastInsertRowid };
         }
         
-        // Guardar precio
-        const insertPrice = db.prepare(`
-          INSERT INTO prices (variant_id, price, currency)
-          VALUES (?, ?, ?)
-        `);
-        insertPrice.run(baseVariant.id, simplePrice, 'CRC');
+        // Guardar precio usando rangos
+        savePriceRange(db, sourceDb, baseVariant.id, simplePrice, 'CRC');
         
         log.info(`  💰 Producto simple: ₡${simplePrice.toFixed(0).replace(/\B(?=(\d{3})+(?!\d))/g, ',')}`);
       } else {
@@ -816,19 +863,19 @@ async function main() {
     const batchPromises = batch.map((url, idx) => {
       const globalIdx = i + idx + 1;
       console.log(`[${globalIdx}/${uniqueUrlBases.length}] Scrapeando: ${url}`);
-      return scrapeAndSave(db, url);
+      return scrapeAndSave(db, url, sourceDb);
     });
     await Promise.all(batchPromises);
     totalProcessed += batch.length;
     
     // Estadísticas cada 25 productos
     if (totalProcessed % 25 === 0 || totalProcessed === uniqueUrlBases.length) {
-      const currentPrices = db.prepare('SELECT COUNT(*) as count FROM prices').get().count;
+      const currentRanges = db.prepare('SELECT COUNT(*) as count FROM price_ranges').get().count;
       const elapsedSeconds = (Date.now() - startTime) / 1000;
       const rate = (totalProcessed / elapsedSeconds * 60).toFixed(1); // productos/minuto
       
       console.log(`\n📊 PROGRESO: ${totalProcessed}/${uniqueUrlBases.length} (${((totalProcessed/uniqueUrlBases.length)*100).toFixed(1)}%)`);
-      console.log(`💰 Total precios en DB: ${currentPrices.toFixed(0).replace(/\B(?=(\d{3})+(?!\d))/g, ',')}`);
+      console.log(`💰 Total rangos de precio en DB: ${currentRanges.toFixed(0).replace(/\B(?=(\d{3})+(?!\d))/g, ',')}`);
       console.log(`⚡ Velocidad: ${rate} productos/min\n`);
     }
     
@@ -838,10 +885,10 @@ async function main() {
   console.log('\n=== Resumen ===');
   const totalProducts = db.prepare('SELECT COUNT(*) as count FROM products').get().count;
   const totalVariants = db.prepare('SELECT COUNT(*) as count FROM variants').get().count;
-  const totalPrices = db.prepare('SELECT COUNT(*) as count FROM prices').get().count;
+  const totalRanges = db.prepare('SELECT COUNT(*) as count FROM price_ranges').get().count;
   console.log(`Productos guardados: ${totalProducts}`);
   console.log(`Variantes guardadas: ${totalVariants}`);
-  console.log(`Precios guardados: ${totalPrices}`);
+  console.log(`Rangos de precio guardados: ${totalRanges}`);
 	
   db.close();
   console.log('\n✓ Scraping completo. Revisa prices.db');
