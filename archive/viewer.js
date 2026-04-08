@@ -527,18 +527,4 @@ function escapeHtml(text) {
   return div.innerHTML;
 }
 
-// Función para activar/desactivar scroll infinito
-function toggleAutoScroll() {
-  const autoScrollCheckbox = document.getElementById('autoScroll');
-  isAutoScrollEnabled = autoScrollCheckbox.checked;
-  
-  if (isAutoScrollEnabled) {
-    setupScrollListener();
-    console.log('[viewer] 🔄 Scroll infinito activado');
-  } else {
-    removeScrollListener();
-    console.log('[viewer] ⏹️ Scroll infinito desactivado');
-  }
-}
-
 loadDatabase();

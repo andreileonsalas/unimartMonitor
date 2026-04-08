@@ -259,7 +259,7 @@ function displayPriceHistory(variantId, history, isRangeSchema) {
   const minPrice = Math.min(...prices);
   const maxPrice = Math.max(...prices);
   const avgPrice = (prices.reduce((a, b) => a + b, 0) / prices.length).toFixed(2);
-  const currentPrice = history[history.length - 1][0];
+  const currentPrice = prices[prices.length - 1];
 	
 
   // Badge si el precio actual es igual al más bajo
