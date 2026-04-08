@@ -29,7 +29,7 @@ console.log('');
 // ============================================================================
 // TEST 1: Database Initialization - Normalized Schema
 // ============================================================================
-console.log('📦 Test 1: Database Initialization (Products → Variants → Prices)');
+console.log('📦 Test 1: Database Initialization (Products → Variants → Price Ranges)');
 console.log('-'.repeat(70));
 try {
   const db = initDatabase();
@@ -38,10 +38,10 @@ try {
   const tables = db.prepare('SELECT name FROM sqlite_master WHERE type=\'table\'').all();
   const tableNames = tables.map(t => t.name);
   
-  if (tableNames.includes('products') && tableNames.includes('variants') && tableNames.includes('prices')) {
-    testLog('All 3 tables created (products, variants, prices)');
+  if (tableNames.includes('products') && tableNames.includes('variants') && tableNames.includes('price_ranges')) {
+    testLog('All 3 tables created (products, variants, price_ranges)');
   } else {
-    testLog('Missing tables. Expected: products, variants, prices', true);
+    testLog('Missing tables. Expected: products, variants, price_ranges. Got: ' + tableNames.join(', '), true);
   }
   
   // Check products table columns
@@ -64,14 +64,14 @@ try {
     testLog('Variants table missing required columns', true);
   }
   
-  // Check prices table columns
-  const priceCols = db.prepare('PRAGMA table_info(prices)').all();
-  const priceColNames = priceCols.map(c => c.name);
+  // Check price_ranges table columns
+  const rangeCols = db.prepare('PRAGMA table_info(price_ranges)').all();
+  const rangeColNames = rangeCols.map(c => c.name);
   
-  if (priceColNames.includes('variant_id') && priceColNames.includes('price') && priceColNames.includes('currency')) {
-    testLog('Prices table has required columns (variant_id, price, currency)');
+  if (rangeColNames.includes('variant_id') && rangeColNames.includes('price') && rangeColNames.includes('currency') && rangeColNames.includes('start_date') && rangeColNames.includes('end_date')) {
+    testLog('Price_ranges table has required columns (variant_id, price, currency, start_date, end_date)');
   } else {
-    testLog('Prices table missing required columns', true);
+    testLog('Price_ranges table missing required columns', true);
   }
   
   db.close();
@@ -112,12 +112,13 @@ try {
       FOREIGN KEY (product_id) REFERENCES products(id)
     );
     
-    CREATE TABLE prices (
+    CREATE TABLE price_ranges (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       variant_id INTEGER NOT NULL,
       price REAL,
       currency TEXT DEFAULT 'CRC',
-      scraped_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      start_date TEXT NOT NULL,
+      end_date TEXT,
       FOREIGN KEY (variant_id) REFERENCES variants(id)
     );
   `);
@@ -130,24 +131,24 @@ try {
     testLog('Variant → Product FK missing', true);
   }
   
-  // Verify price → variant FK
-  const priceFk = db.prepare('PRAGMA foreign_key_list(prices)').all();
-  if (priceFk.length > 0 && priceFk[0].table === 'variants') {
-    testLog('Price → Variant foreign key exists');
+  // Verify price_range → variant FK
+  const rangeFk = db.prepare('PRAGMA foreign_key_list(price_ranges)').all();
+  if (rangeFk.length > 0 && rangeFk[0].table === 'variants') {
+    testLog('PriceRange → Variant foreign key exists');
   } else {
-    testLog('Price → Variant FK missing', true);
+    testLog('PriceRange → Variant FK missing', true);
   }
   
-  // Test cascade: insert product → variant → price
+  // Test cascade: insert product → variant → price_range
   db.exec(`
     INSERT INTO products (url_base, name) VALUES ('test-product', 'Test Product');
     INSERT INTO variants (product_id, url, sku, stock) VALUES (1, 'test-url', 'TEST-SKU', NULL);
-    INSERT INTO prices (variant_id, price) VALUES (1, 9999);
+    INSERT INTO price_ranges (variant_id, price, start_date) VALUES (1, 9999, '2026-01-01');
   `);
   
-  const price = db.prepare('SELECT * FROM prices WHERE variant_id = 1').get();
-  if (price && price.price === 9999 && price.currency === 'CRC') {
-    testLog('Can insert product → variant → price chain');
+  const range = db.prepare('SELECT * FROM price_ranges WHERE variant_id = 1').get();
+  if (range && range.price === 9999 && range.currency === 'CRC' && range.end_date === null) {
+    testLog('Can insert product → variant → price_range chain (open-ended range)');
   } else {
     testLog('Failed to insert full chain', true);
   }
@@ -248,12 +249,13 @@ try {
       FOREIGN KEY (product_id) REFERENCES products(id)
     );
     
-    CREATE TABLE prices (
+    CREATE TABLE price_ranges (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       variant_id INTEGER NOT NULL,
       price REAL,
       currency TEXT DEFAULT 'CRC',
-      scraped_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      start_date TEXT NOT NULL,
+      end_date TEXT,
       FOREIGN KEY (variant_id) REFERENCES variants(id)
     );
   `);
@@ -266,7 +268,7 @@ try {
       (1, 'tshirt-red', 'TSHIRT-RED', 'Color', 'Rojo', NULL),
       (1, 'tshirt-blue', 'TSHIRT-BLUE', 'Color', 'Azul', NULL),
       (1, 'tshirt-green', 'TSHIRT-GREEN', 'Color', 'Verde', NULL);
-  `)
+  `);
   
   const variants = db.prepare('SELECT COUNT(*) as count FROM variants WHERE product_id = 1').get();
   if (variants.count === 3) {
@@ -275,28 +277,38 @@ try {
     testLog(`Expected 3 variants, got ${variants.count}`, true);
   }
   
-  // Each variant can have different prices
+  // Each variant can have a different open price range
   db.exec(`
-    INSERT INTO prices (variant_id, price) VALUES
-      (1, 5000),
-      (2, 5500),
-      (3, 5200);
+    INSERT INTO price_ranges (variant_id, price, start_date) VALUES
+      (1, 5000, '2026-01-01'),
+      (2, 5500, '2026-01-01'),
+      (3, 5200, '2026-01-01');
   `);
   
-  const priceCount = db.prepare('SELECT COUNT(*) as count FROM prices').get();
-  if (priceCount.count === 3) {
-    testLog('Each variant can have its own price');
+  const rangeCount = db.prepare('SELECT COUNT(*) as count FROM price_ranges').get();
+  if (rangeCount.count === 3) {
+    testLog('Each variant can have its own price range');
   } else {
-    testLog(`Expected 3 prices, got ${priceCount.count}`, true);
+    testLog(`Expected 3 price ranges, got ${rangeCount.count}`, true);
   }
   
-  // Verify price history per variant
-  db.exec(`INSERT INTO prices (variant_id, price) VALUES (1, 4800)`); // Price drop
-  const redVariantPrices = db.prepare('SELECT COUNT(*) as count FROM prices WHERE variant_id = 1').get();
-  if (redVariantPrices.count === 2) {
-    testLog('Variant price history tracked correctly');
+  // Simulate a price change: close old range, open new one
+  db.exec(`UPDATE price_ranges SET end_date = '2026-01-10' WHERE variant_id = 1 AND end_date IS NULL`);
+  db.exec(`INSERT INTO price_ranges (variant_id, price, start_date) VALUES (1, 4800, '2026-01-11')`);
+  
+  const redVariantRanges = db.prepare('SELECT COUNT(*) as count FROM price_ranges WHERE variant_id = 1').get();
+  if (redVariantRanges.count === 2) {
+    testLog('Price range history tracked correctly (close old, open new)');
   } else {
-    testLog('Price history not working', true);
+    testLog('Price range history not working', true);
+  }
+  
+  // Verify open range is the current price
+  const currentRange = db.prepare('SELECT price FROM price_ranges WHERE variant_id = 1 AND end_date IS NULL').get();
+  if (currentRange && currentRange.price === 4800) {
+    testLog('Current price correctly identified via open range (end_date IS NULL)');
+  } else {
+    testLog('Current price lookup via open range failed', true);
   }
   
   db.close();
@@ -335,10 +347,10 @@ try {
     testLog('Missing product_id index on variants', true);
   }
   
-  if (indexMap.prices && indexMap.prices.some(i => i.includes('variant_id'))) {
-    testLog('Prices table has variant_id index');
+  if (indexMap.price_ranges && indexMap.price_ranges.some(i => i.includes('variant_id'))) {
+    testLog('Price_ranges table has variant_id index');
   } else {
-    testLog('Missing variant_id index on prices', true);
+    testLog('Missing variant_id index on price_ranges', true);
   }
   
   db.close();
@@ -364,51 +376,46 @@ try {
     if (fs.existsSync(file)) fs.unlinkSync(file);
   });
 
-  // 1. Create main database with existing data (simulates current production DB)
+  // 1. Create main database with existing data using price_ranges schema
   const mainDb = new Database('prices.db');
   mainDb.exec(`
     CREATE TABLE products (id INTEGER PRIMARY KEY, url_base TEXT UNIQUE, title TEXT, status TEXT DEFAULT 'active', last_check DATETIME);
     CREATE TABLE variants (id INTEGER PRIMARY KEY, product_id INTEGER, url TEXT UNIQUE, sku TEXT, variant_label TEXT, variant_value TEXT, shopify_gid TEXT, stock INTEGER, FOREIGN KEY (product_id) REFERENCES products(id));
-    CREATE TABLE prices (id INTEGER PRIMARY KEY, variant_id INTEGER, price REAL, currency TEXT, scraped_at DATETIME DEFAULT CURRENT_TIMESTAMP, FOREIGN KEY (variant_id) REFERENCES variants(id));
+    CREATE TABLE price_ranges (id INTEGER PRIMARY KEY, variant_id INTEGER, price REAL, currency TEXT, start_date TEXT NOT NULL, end_date TEXT, FOREIGN KEY (variant_id) REFERENCES variants(id));
   `);
   
-  // Insert existing data (50 products with ~150 prices total)
+  // Insert existing data (50 products with historical price ranges)
   for (let i = 1; i <= 50; i++) {
     mainDb.prepare('INSERT INTO products VALUES (?, ?, ?, ?, ?)').run(i, `existing${i}`, `Existing Product ${i}`, 'active', '2026-01-18');
     mainDb.prepare('INSERT INTO variants VALUES (?, ?, ?, ?, ?, ?, ?, ?)').run(i, i, `existing${i}`, `SKU${i}`, null, null, null, null);
-    
-    // 2-4 historical prices per product
-    const priceCount = Math.floor(Math.random() * 3) + 2;
-    for (let p = 0; p < priceCount; p++) {
-      const priceId = (i-1) * 4 + p + 1;
-      mainDb.prepare('INSERT INTO prices VALUES (?, ?, ?, ?, ?)').run(priceId, i, 1000 + Math.random() * 1000, 'CRC', '2026-01-18');
-    }
+    // One open range per variant (current price)
+    mainDb.prepare('INSERT INTO price_ranges (variant_id, price, currency, start_date) VALUES (?, ?, ?, ?)').run(i, 1000 + i, 'CRC', '2026-01-01');
   }
   
   const initialProducts = mainDb.prepare('SELECT COUNT(*) as count FROM products').get().count;
   const initialVariants = mainDb.prepare('SELECT COUNT(*) as count FROM variants').get().count;
-  const initialPrices = mainDb.prepare('SELECT COUNT(*) as count FROM prices').get().count;
+  const initialRanges = mainDb.prepare('SELECT COUNT(*) as count FROM price_ranges').get().count;
   
-  testLog(`Initial DB: ${initialProducts} products, ${initialVariants} variants, ${initialPrices} prices`);
+  testLog(`Initial DB: ${initialProducts} products, ${initialVariants} variants, ${initialRanges} ranges`);
   mainDb.close();
 
-  // 2. Create segment databases (simulates parallel scraping results)
+  // 2. Create segment databases using price_ranges schema
   
   // Segment 1: 5 new products
   const seg1 = new Database('prices-1.db');
   seg1.exec(`
     CREATE TABLE products (id INTEGER PRIMARY KEY, url_base TEXT UNIQUE, title TEXT, status TEXT DEFAULT 'active', last_check DATETIME);
     CREATE TABLE variants (id INTEGER PRIMARY KEY, product_id INTEGER, url TEXT UNIQUE, sku TEXT, variant_label TEXT, variant_value TEXT, shopify_gid TEXT, stock INTEGER);
-    CREATE TABLE prices (id INTEGER PRIMARY KEY, variant_id INTEGER, price REAL, currency TEXT, scraped_at DATETIME DEFAULT CURRENT_TIMESTAMP);
+    CREATE TABLE price_ranges (id INTEGER PRIMARY KEY, variant_id INTEGER, price REAL, currency TEXT, start_date TEXT NOT NULL, end_date TEXT);
   `);
   
   for (let i = 51; i <= 55; i++) {
     seg1.prepare('INSERT INTO products VALUES (?, ?, ?, ?, ?)').run(i, `new${i}`, `New Product ${i}`, 'active', '2026-01-19');
     seg1.prepare('INSERT INTO variants VALUES (?, ?, ?, ?, ?, ?, ?, ?)').run(i, i, `new${i}`, `NEWSKU${i}`, null, null, null, null);
-    seg1.prepare('INSERT INTO prices VALUES (?, ?, ?, ?, ?)').run(i, i, 1500, 'CRC', '2026-01-19');
+    seg1.prepare('INSERT INTO price_ranges (variant_id, price, currency, start_date) VALUES (?, ?, ?, ?)').run(i, 1500, 'CRC', '2026-01-19');
   }
   
-  const seg1Prices = seg1.prepare('SELECT COUNT(*) as count FROM prices').get().count;
+  const seg1Ranges = seg1.prepare('SELECT COUNT(*) as count FROM price_ranges').get().count;
   seg1.close();
   
   // Segment 2: 3 new products
@@ -416,19 +423,19 @@ try {
   seg2.exec(`
     CREATE TABLE products (id INTEGER PRIMARY KEY, url_base TEXT UNIQUE, title TEXT, status TEXT DEFAULT 'active', last_check DATETIME);
     CREATE TABLE variants (id INTEGER PRIMARY KEY, product_id INTEGER, url TEXT UNIQUE, sku TEXT, variant_label TEXT, variant_value TEXT, shopify_gid TEXT, stock INTEGER);
-    CREATE TABLE prices (id INTEGER PRIMARY KEY, variant_id INTEGER, price REAL, currency TEXT, scraped_at DATETIME DEFAULT CURRENT_TIMESTAMP);
+    CREATE TABLE price_ranges (id INTEGER PRIMARY KEY, variant_id INTEGER, price REAL, currency TEXT, start_date TEXT NOT NULL, end_date TEXT);
   `);
   
   for (let i = 56; i <= 58; i++) {
     seg2.prepare('INSERT INTO products VALUES (?, ?, ?, ?, ?)').run(i, `newer${i}`, `Newer Product ${i}`, 'active', '2026-01-19');
     seg2.prepare('INSERT INTO variants VALUES (?, ?, ?, ?, ?, ?, ?, ?)').run(i, i, `newer${i}`, `NEWERSKU${i}`, null, null, null, null);
-    seg2.prepare('INSERT INTO prices VALUES (?, ?, ?, ?, ?)').run(i, i, 2000, 'CRC', '2026-01-19');
+    seg2.prepare('INSERT INTO price_ranges (variant_id, price, currency, start_date) VALUES (?, ?, ?, ?)').run(i, 2000, 'CRC', '2026-01-19');
   }
   
-  const seg2Prices = seg2.prepare('SELECT COUNT(*) as count FROM prices').get().count;
+  const seg2Ranges = seg2.prepare('SELECT COUNT(*) as count FROM price_ranges').get().count;
   seg2.close();
 
-  testLog(`Created segments: +${seg1Prices} prices (seg1), +${seg2Prices} prices (seg2)`);
+  testLog(`Created segments: +${seg1Ranges} ranges (seg1), +${seg2Ranges} ranges (seg2)`);
 
   // 3. Execute real merge using merge_db.js module
   testLog('Executing real merge using merge_db.js...');
@@ -443,7 +450,6 @@ try {
     const segmentDbs = findSegmentDatabases();
     const mergeDb = new Database('prices.db');
     
-    // Use real merge function for each segment
     for (const segmentInfo of segmentDbs) {
       const segmentPath = path.join(__dirname, segmentInfo.file);
       mergeDatabase(mergeDb, segmentPath, segmentInfo.segment);
@@ -451,33 +457,30 @@ try {
     
     mergeDb.close();
     
-    // Clean up segment files (like real workflow does)
     segmentDbs.forEach(seg => {
       if (fs.existsSync(seg.file)) fs.unlinkSync(seg.file);
     });
     
   } finally {
-    console.log = originalLog; // Restore console.log
+    console.log = originalLog;
   }
 
   // 4. Verify merge results
   const finalDb = new Database('prices.db');
   const finalProducts = finalDb.prepare('SELECT COUNT(*) as count FROM products').get().count;
   const finalVariants = finalDb.prepare('SELECT COUNT(*) as count FROM variants').get().count;
-  const finalPrices = finalDb.prepare('SELECT COUNT(*) as count FROM prices').get().count;
+  const finalRanges = finalDb.prepare('SELECT COUNT(*) as count FROM price_ranges').get().count;
   finalDb.close();
   
   const expectedProducts = initialProducts + 8; // +5 from seg1, +3 from seg2
-  const expectedMinPrices = initialPrices + seg1Prices + seg2Prices;
+
+  testLog(`Final result: ${finalProducts} products, ${finalVariants} variants, ${finalRanges} ranges`);
   
-  testLog(`Final result: ${finalProducts} products, ${finalVariants} variants, ${finalPrices} prices`);
-  
-  // Critical validations (prevent data loss like reported issue)
-  if (finalPrices >= initialPrices) {
-    testLog('✓ Existing prices preserved (no data loss)');
+  if (finalRanges >= initialRanges) {
+    testLog('✓ Existing ranges preserved (no data loss)');
     testsPass++;
   } else {
-    testLog(`❌ CRITICAL: Price data loss detected! (${initialPrices} → ${finalPrices})`);
+    testLog(`❌ CRITICAL: Range data loss detected! (${initialRanges} → ${finalRanges})`);
     testsFail++;
   }
   
@@ -489,11 +492,11 @@ try {
     testsFail++;
   }
   
-  if (finalPrices >= expectedMinPrices) {
-    testLog('✓ New prices added successfully');
+  if (finalRanges >= initialRanges + seg1Ranges + seg2Ranges) {
+    testLog('✓ New ranges added successfully');
     testsPass++;
   } else {
-    testLog(`❌ Price addition incomplete (expected ≥${expectedMinPrices}, got ${finalPrices})`);
+    testLog(`❌ Range addition incomplete (expected ≥${initialRanges + seg1Ranges + seg2Ranges}, got ${finalRanges})`);
     testsFail++;
   }
   

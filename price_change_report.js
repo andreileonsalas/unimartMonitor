@@ -67,13 +67,30 @@ async function toggleVariantDetails(variantId) {
     // Reabrir la base de datos para obtener el historial
     if (!window._priceChangeReportDB) return chartContainer.innerHTML = '<p>Error: DB no cargada</p>';
     const db = window._priceChangeReportDB;
-    const history = db.exec(`SELECT price, scraped_at FROM prices WHERE variant_id = ${variantId} ORDER BY scraped_at ASC`)[0]?.values || [];
-    if (history.length === 0) {
-      chartContainer.innerHTML = '<p>No hay historial de precios</p>';
-      return;
+
+    // Detectar schema
+    const tableNames = (db.exec("SELECT name FROM sqlite_master WHERE type='table'")[0]?.values || []).map(r => r[0]);
+    const hasPriceRanges = tableNames.includes('price_ranges');
+
+    let prices, dates;
+    if (hasPriceRanges) {
+      const ranges = db.exec(`SELECT price, start_date, end_date FROM price_ranges WHERE variant_id = ${variantId} ORDER BY start_date ASC`)[0]?.values || [];
+      if (ranges.length === 0) { chartContainer.innerHTML = '<p>No hay historial de precios</p>'; return; }
+      const todayStr = new Date().toISOString().slice(0, 10);
+      // Construir step-chart: cada rango aporta punto inicial y final
+      let pts = [];
+      ranges.forEach(h => {
+        pts.push({ price: h[0], date: new Date(h[1] + 'T00:00:00') });
+        pts.push({ price: h[0], date: new Date((h[2] || todayStr) + 'T00:00:00') });
+      });
+      prices = pts.map(p => p.price);
+      dates = pts.map(p => p.date);
+    } else {
+      const history = db.exec(`SELECT price, scraped_at FROM prices WHERE variant_id = ${variantId} ORDER BY scraped_at ASC`)[0]?.values || [];
+      if (history.length === 0) { chartContainer.innerHTML = '<p>No hay historial de precios</p>'; return; }
+      prices = history.map(h => h[0]);
+      dates = history.map(h => new Date(h[1]));
     }
-    const prices = history.map(h => h[0]);
-    const dates = history.map(h => new Date(h[1]));
     const minPrice = Math.min(...prices);
     const maxPrice = Math.max(...prices);
     const avgPrice = (prices.reduce((a, b) => a + b, 0) / prices.length).toFixed(2);
@@ -182,18 +199,35 @@ function filterAndDisplay() {
     });
     const db = new SQL.Database(decompressed);
     window._priceChangeReportDB = db; // Guardar referencia global para historial
+
+    // Detectar schema disponible
+    const tableNames = (db.exec("SELECT name FROM sqlite_master WHERE type='table'")[0]?.values || []).map(r => r[0]);
+    const hasPriceRanges = tableNames.includes('price_ranges');
+
     // Obtener todas las variantes y calcular cambios
-    const variants = db.exec('SELECT id, sku, variant_label, variant_value, url FROM variants')[0]?.values || [];
+    const variants = db.exec('SELECT v.id, v.sku, v.variant_label, v.variant_value, v.url, p.title FROM variants v JOIN products p ON v.product_id = p.id')[0]?.values || [];
     allVariants = [];
-    for (const [id, sku, label, value, url] of variants) {
-      const history = db.exec(`SELECT price, scraped_at FROM prices WHERE variant_id = ${id} ORDER BY scraped_at ASC`)[0]?.values;
-      if (!history || history.length < 2) continue;
-      const prev = history[history.length - 2];
-      const curr = history[history.length - 1];
+    for (const [id, sku, label, value, url, title] of variants) {
+      let prev, curr, date;
+      if (hasPriceRanges) {
+        // Schema nuevo: obtener los dos rangos más recientes por start_date
+        const ranges = db.exec(`SELECT price, start_date FROM price_ranges WHERE variant_id = ${id} ORDER BY start_date ASC`)[0]?.values;
+        if (!ranges || ranges.length < 2) continue;
+        prev = ranges[ranges.length - 2];
+        curr = ranges[ranges.length - 1];
+        date = curr[1];
+      } else {
+        // Schema antiguo (fallback)
+        const history = db.exec(`SELECT price, scraped_at FROM prices WHERE variant_id = ${id} ORDER BY scraped_at ASC`)[0]?.values;
+        if (!history || history.length < 2) continue;
+        prev = history[history.length - 2];
+        curr = history[history.length - 1];
+        date = curr[1];
+      }
       const change = curr[0] - prev[0];
       allVariants.push({
-        id, sku, label, value, url,
-        prev: prev[0], curr: curr[0], change, date: curr[1]
+        id, sku, label, value, url, title,
+        prev: prev[0], curr: curr[0], change, date
       });
     }
     filterAndDisplay();

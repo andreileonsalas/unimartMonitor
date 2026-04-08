@@ -36,19 +36,16 @@ console.log('➕ ADDING OPTIMIZED INDICES');
 console.log('='.repeat(70));
 
 const newIndices = [
-  // Composite index for common price queries (by product and date)
-  'CREATE INDEX IF NOT EXISTS idx_prices_product_date ON prices(product_id, scraped_at DESC)',
+  // Composite index for common price range queries
+  'CREATE INDEX IF NOT EXISTS idx_price_ranges_variant_date ON price_ranges(variant_id, start_date DESC)',
   
-  // Index for failure lookups
-  'CREATE INDEX IF NOT EXISTS idx_failures_url ON scraping_failures(url)',
-  'CREATE INDEX IF NOT EXISTS idx_failures_status ON scraping_failures(status_code)',
-  'CREATE INDEX IF NOT EXISTS idx_failures_attempts ON scraping_failures(attempts)',
+  // Index for open ranges (current prices) - most common query
+  'CREATE INDEX IF NOT EXISTS idx_price_ranges_open ON price_ranges(variant_id, end_date)',
   
   // Index for products by last_scraped (useful for --from-db mode)
-  'CREATE INDEX IF NOT EXISTS idx_products_last_scraped ON products(last_scraped ASC)',
+  'CREATE INDEX IF NOT EXISTS idx_products_last_scraped ON products(last_check ASC)',
   
-  // Partial index for active products (not in failures with 404)
-  // This helps exclude deleted products efficiently
+  // Partial index for active products
   'CREATE INDEX IF NOT EXISTS idx_products_title ON products(title) WHERE title IS NOT NULL',
 ];
 
@@ -114,7 +111,7 @@ console.log('\n' + '='.repeat(70));
 console.log('📊 TABLE STATISTICS');
 console.log('='.repeat(70));
 
-const tables = ['products', 'prices', 'scraping_failures', 'scraping_state', 'sitemap_cache'];
+const tables = ['products', 'variants', 'price_ranges'];
 tables.forEach(table => {
   try {
     const count = db.prepare(`SELECT COUNT(*) as count FROM ${table}`).get().count;

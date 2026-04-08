@@ -151,5 +151,9 @@ prices-*.db-wal
 # Ignorar archivo de test
 test_url.js
 
+# Ignorar DBs temporales y backups
+temp-test.db
+prices.backup.*.db
+
 # Incluir DB comprimida (necesaria para el viewer)
 !prices.db.gz

@@ -1,6 +1,6 @@
 // merge_db.js
 // Script para unificar múltiples bases de datos prices-*.db en una sola prices.db
-// Evita duplicados y mantiene la estructura original
+// Evita duplicados y mantiene la estructura con price_ranges
 
 const Database = require('better-sqlite3');
 const path = require('path');
@@ -25,7 +25,6 @@ function initMergedDatabase() {
   
   if (dbExists) {
     console.log('📄 Preservando base de datos existente (modo incremental)...');
-    // Hacer backup por seguridad
     const backupPath = path.join(__dirname, `prices.backup.${Date.now()}.db`);
     fs.copyFileSync(dbPath, backupPath);
     console.log(`💾 Backup creado: ${path.basename(backupPath)}`);
@@ -35,7 +34,6 @@ function initMergedDatabase() {
   
   const db = new Database(dbPath);
   
-  // Crear tablas si no existen (misma estructura que scraper.js)
   db.exec(`
     CREATE TABLE IF NOT EXISTS products (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -55,19 +53,20 @@ function initMergedDatabase() {
       stock INTEGER,
       FOREIGN KEY (product_id) REFERENCES products(id)
     );
-    CREATE TABLE IF NOT EXISTS prices (
+    CREATE TABLE IF NOT EXISTS price_ranges (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       variant_id INTEGER NOT NULL,
       price REAL,
       currency TEXT,
-      scraped_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      start_date TEXT NOT NULL,
+      end_date TEXT,
       FOREIGN KEY (variant_id) REFERENCES variants(id)
     );
-    
-    -- Índices para mejorar performance
+
     CREATE INDEX IF NOT EXISTS idx_variants_sku ON variants(sku);
     CREATE INDEX IF NOT EXISTS idx_variants_product_id ON variants(product_id);
-    CREATE INDEX IF NOT EXISTS idx_prices_variant_id ON prices(variant_id);
+    CREATE INDEX IF NOT EXISTS idx_price_ranges_variant_id ON price_ranges(variant_id);
+    CREATE INDEX IF NOT EXISTS idx_price_ranges_open ON price_ranges(variant_id, end_date);
   `);
   
   return db;
@@ -78,13 +77,13 @@ function mergeDatabase(mainDb, segmentDbPath, segmentNumber) {
   
   if (!fs.existsSync(segmentDbPath)) {
     console.log(`⚠️  Archivo no encontrado: ${segmentDbPath}`);
-    return { products: 0, variants: 0, prices: 0 };
+    return { products: 0, variants: 0, ranges: 0 };
   }
   
   const segmentDb = new Database(segmentDbPath, { readonly: true });
   
   try {
-    let mergedStats = { products: 0, variants: 0, prices: 0 };
+    let mergedStats = { products: 0, variants: 0, ranges: 0 };
     
     // 1. Merge productos con UPSERT
     const products = segmentDb.prepare('SELECT * FROM products').all();
@@ -110,10 +109,7 @@ function mergeDatabase(mainDb, segmentDbPath, segmentNumber) {
     `).all();
     
     const findProduct = mainDb.prepare('SELECT id FROM products WHERE url_base = ?');
-    const findVariant = mainDb.prepare(`
-      SELECT id FROM variants 
-      WHERE product_id = ? AND url = ?
-    `);
+    const findVariant = mainDb.prepare('SELECT id FROM variants WHERE product_id = ? AND url = ?');
     const insertVariant = mainDb.prepare(`
       INSERT INTO variants (product_id, url, sku, variant_label, variant_value, shopify_gid, stock)
       VALUES (?, ?, ?, ?, ?, ?, ?)
@@ -130,23 +126,17 @@ function mergeDatabase(mainDb, segmentDbPath, segmentNumber) {
       
       const existingVariant = findVariant.get(mainProduct.id, variant.url);
       if (!existingVariant) {
-        // Nueva variante
         insertVariant.run(
-          mainProduct.id,
-          variant.url,
-          variant.sku,
-          variant.variant_label,
-          variant.variant_value,
+          mainProduct.id, variant.url, variant.sku,
+          variant.variant_label, variant.variant_value,
           variant.shopify_gid,
           typeof variant.stock !== 'undefined' ? variant.stock : null
         );
         mergedStats.variants++;
       } else {
-        // Actualizar campos para variante existente
         if (variant.sku && !existingVariant.sku) {
           updateVariantSku.run(variant.sku, existingVariant.id);
         }
-        // Actualizar stock siempre
         updateVariantStock.run(
           typeof variant.stock !== 'undefined' ? variant.stock : null,
           existingVariant.id
@@ -154,38 +144,81 @@ function mergeDatabase(mainDb, segmentDbPath, segmentNumber) {
       }
     }
     
-    // 3. Merge precios evitando duplicados temporales
-    const prices = segmentDb.prepare(`
-      SELECT pr.*, v.url as variant_url, p.url_base
-      FROM prices pr
-      JOIN variants v ON pr.variant_id = v.id
-      JOIN products p ON v.product_id = p.id
-    `).all();
-    
+    // 3. Merge price_ranges con lógica de rangos
+    // Detectar si el segmento usa price_ranges o prices (tabla legacy)
+    const segTables = segmentDb.prepare("SELECT name FROM sqlite_master WHERE type='table'").all().map(r => r.name);
+    const segHasRanges = segTables.includes('price_ranges');
+
     const findVariantByUrl = mainDb.prepare(`
       SELECT v.id FROM variants v
       JOIN products p ON v.product_id = p.id
       WHERE p.url_base = ? AND v.url = ?
     `);
-    const insertPrice = mainDb.prepare(`
-      INSERT INTO prices (variant_id, price, currency, scraped_at)
-      VALUES (?, ?, ?, ?)
-    `);
-    
-    for (const price of prices) {
-      const mainVariant = findVariantByUrl.get(price.url_base, price.variant_url);
-      if (mainVariant) {
-        insertPrice.run(
-          mainVariant.id,
-          price.price,
-          price.currency,
-          price.scraped_at
-        );
-        mergedStats.prices++;
+    const findOpenRange = mainDb.prepare(
+      'SELECT id, price FROM price_ranges WHERE variant_id = ? AND end_date IS NULL ORDER BY start_date DESC LIMIT 1'
+    );
+    const closeRange = mainDb.prepare(
+      'UPDATE price_ranges SET end_date = ? WHERE variant_id = ? AND end_date IS NULL'
+    );
+    const insertRange = mainDb.prepare(
+      'INSERT INTO price_ranges (variant_id, price, currency, start_date, end_date) VALUES (?, ?, ?, ?, ?)'
+    );
+
+    if (segHasRanges) {
+      // Segmento ya usa price_ranges: aplicar lógica de merge de rangos
+      const segRanges = segmentDb.prepare(`
+        SELECT pr.*, v.url as variant_url, p.url_base
+        FROM price_ranges pr
+        JOIN variants v ON pr.variant_id = v.id
+        JOIN products p ON v.product_id = p.id
+        ORDER BY pr.start_date ASC
+      `).all();
+
+      for (const range of segRanges) {
+        const mainVariant = findVariantByUrl.get(range.url_base, range.variant_url);
+        if (!mainVariant) continue;
+
+        const openRange = findOpenRange.get(mainVariant.id);
+        if (!openRange) {
+          // Sin rango previo: insertar tal cual
+          insertRange.run(mainVariant.id, range.price, range.currency, range.start_date, range.end_date);
+          mergedStats.ranges++;
+        } else if (Math.abs(openRange.price - range.price) > 0.01) {
+          // Precio distinto: cerrar rango anterior y abrir nuevo
+          closeRange.run(range.start_date, mainVariant.id);
+          insertRange.run(mainVariant.id, range.price, range.currency, range.start_date, range.end_date);
+          mergedStats.ranges++;
+        }
+        // Si mismo precio y rango abierto: no hacer nada (sigue el mismo rango)
+      }
+    } else {
+      // Segmento legacy con tabla prices: convertir al vuelo a rangos
+      const segPrices = segmentDb.prepare(`
+        SELECT pr.*, v.url as variant_url, p.url_base
+        FROM prices pr
+        JOIN variants v ON pr.variant_id = v.id
+        JOIN products p ON v.product_id = p.id
+        ORDER BY pr.scraped_at ASC
+      `).all();
+
+      for (const price of segPrices) {
+        const mainVariant = findVariantByUrl.get(price.url_base, price.variant_url);
+        if (!mainVariant) continue;
+
+        const today = price.scraped_at ? price.scraped_at.slice(0, 10) : new Date().toISOString().slice(0, 10);
+        const openRange = findOpenRange.get(mainVariant.id);
+        if (!openRange) {
+          insertRange.run(mainVariant.id, price.price, price.currency, today, null);
+          mergedStats.ranges++;
+        } else if (Math.abs(openRange.price - price.price) > 0.01) {
+          closeRange.run(today, mainVariant.id);
+          insertRange.run(mainVariant.id, price.price, price.currency, today, null);
+          mergedStats.ranges++;
+        }
       }
     }
     
-    console.log(`  ✓ Merged: ${mergedStats.products} productos, ${mergedStats.variants} variantes, ${mergedStats.prices} precios`);
+    console.log(`  ✓ Merged: ${mergedStats.products} productos, ${mergedStats.variants} variantes, ${mergedStats.ranges} rangos`);
     return mergedStats;
     
   } finally {
@@ -196,7 +229,6 @@ function mergeDatabase(mainDb, segmentDbPath, segmentNumber) {
 async function main() {
   console.log('🔄 Iniciando merge de bases de datos segmentadas...\n');
   
-  // Buscar todas las bases de datos de segmentos
   const segmentDatabases = findSegmentDatabases();
   
   if (segmentDatabases.length === 0) {
@@ -212,59 +244,44 @@ async function main() {
   });
   console.log();
   
-  // Inicializar base de datos principal
   const mainDb = initMergedDatabase();
   
-  // Contar datos existentes ANTES del merge
   const existingProducts = mainDb.prepare('SELECT COUNT(*) as count FROM products').get().count;
   const existingVariants = mainDb.prepare('SELECT COUNT(*) as count FROM variants').get().count;  
-  const existingPrices = mainDb.prepare('SELECT COUNT(*) as count FROM prices').get().count;
+  const existingRanges = mainDb.prepare('SELECT COUNT(*) as count FROM price_ranges').get().count;
   
   if (existingProducts > 0) {
     console.log(`📊 Datos existentes ANTES del merge:`);
     console.log(`   Productos: ${existingProducts.toLocaleString()}`);
     console.log(`   Variantes: ${existingVariants.toLocaleString()}`);
-    console.log(`   Precios: ${existingPrices.toLocaleString()}\n`);
+    console.log(`   Rangos de precio: ${existingRanges.toLocaleString()}\n`);
   }
   
-  // Merge cada segmento
-  let totalStats = { products: 0, variants: 0, prices: 0 };
+  let totalStats = { products: 0, variants: 0, ranges: 0 };
   
   for (const segmentInfo of segmentDatabases) {
     const segmentPath = path.join(__dirname, segmentInfo.file);
     const stats = mergeDatabase(mainDb, segmentPath, segmentInfo.segment);
-    
     totalStats.products += stats.products;
     totalStats.variants += stats.variants;
-    totalStats.prices += stats.prices;
+    totalStats.ranges += stats.ranges;
   }
   
-  // Estadísticas finales
-  console.log('\\n=== Resumen del Merge ===');
+  console.log('\n=== Resumen del Merge ===');
   const finalProducts = mainDb.prepare('SELECT COUNT(*) as count FROM products').get().count;
   const finalVariants = mainDb.prepare('SELECT COUNT(*) as count FROM variants').get().count;
-  const finalPrices = mainDb.prepare('SELECT COUNT(*) as count FROM prices').get().count;
+  const finalRanges = mainDb.prepare('SELECT COUNT(*) as count FROM price_ranges').get().count;
   
   console.log(`📊 Total en prices.db:`);
   console.log(`   Productos: ${finalProducts.toLocaleString()}`);
   console.log(`   Variantes: ${finalVariants.toLocaleString()}`);
-  console.log(`   Precios: ${finalPrices.toLocaleString()}`);
+  console.log(`   Rangos de precio: ${finalRanges.toLocaleString()}`);
   
-  // Mostrar incremento si había datos existentes
   if (existingProducts > 0) {
-    const productIncrement = finalProducts - existingProducts;
-    const variantIncrement = finalVariants - existingVariants;
-    const priceIncrement = finalPrices - existingPrices;
-    
     console.log(`\n📈 Incremento en este merge:`);
-    console.log(`   +${productIncrement.toLocaleString()} productos`);
-    console.log(`   +${variantIncrement.toLocaleString()} variantes`);
-    console.log(`   +${priceIncrement.toLocaleString()} precios`);
-    
-    if (priceIncrement < 0) {
-      console.log(`\n⚠️  ADVERTENCIA: Pérdida de ${Math.abs(priceIncrement).toLocaleString()} precios detectada!`);
-      console.log(`   Esto puede indicar un problema en la segmentación o merge.`);
-    }
+    console.log(`   +${(finalProducts - existingProducts).toLocaleString()} productos`);
+    console.log(`   +${(finalVariants - existingVariants).toLocaleString()} variantes`);
+    console.log(`   +${(finalRanges - existingRanges).toLocaleString()} rangos`);
   }
   
   const dbSizeMB = (fs.statSync(path.join(__dirname, 'prices.db')).size / (1024*1024)).toFixed(1);
@@ -272,8 +289,7 @@ async function main() {
   
   mainDb.close();
   
-  // Limpiar archivos de segmentos
-  console.log('\\n🧹 Limpiando archivos de segmentos...');
+  console.log('\n🧹 Limpiando archivos de segmentos...');
   let deletedFiles = 0;
   for (const segmentInfo of segmentDatabases) {
     try {
@@ -285,14 +301,12 @@ async function main() {
     }
   }
   
-  // Limpiar backups antiguos (mantener solo los 3 más recientes)
   const backupFiles = fs.readdirSync(__dirname)
     .filter(file => file.startsWith('prices.backup.') && file.endsWith('.db'))
     .sort()
     .reverse();
-    
   if (backupFiles.length > 3) {
-    console.log(`\\n🧹 Limpiando backups antiguos...`);
+    console.log('\n🧹 Limpiando backups antiguos...');
     for (let i = 3; i < backupFiles.length; i++) {
       try {
         fs.unlinkSync(path.join(__dirname, backupFiles[i]));
@@ -303,7 +317,7 @@ async function main() {
     }
   }
   
-  console.log(`\\n✅ Merge completado! ${deletedFiles}/${segmentDatabases.length} archivos de segmentos eliminados.`);
+  console.log(`\n✅ Merge completado! ${deletedFiles}/${segmentDatabases.length} archivos de segmentos eliminados.`);
 }
 
 if (require.main === module) {
