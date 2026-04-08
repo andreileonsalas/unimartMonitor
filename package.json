@@ -4,6 +4,7 @@
   "description": "Track unimart.com prices like camelcamelcamel",
   "main": "scraper.js",
   "scripts": {
+    "migrate": "node migrate_to_ranges.js",
     "scrape": "node scraper.js",
     "scrape:daily": "node scraper.js --mode=daily",
     "scrape:weekly": "node scraper.js --mode=weekly",

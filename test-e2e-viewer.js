@@ -82,7 +82,8 @@ const workerChecks = [
   { name: 'Maneja INIT_DB', test: workerCode.includes('INIT_DB') },
   { name: 'Maneja QUERY_VARIANTS', test: workerCode.includes('QUERY_VARIANTS') },
   { name: 'Importa SQL.js', test: workerCode.includes('initSqlJs') || workerCode.includes('importScripts') },
-  { name: 'Procesa mensajes', test: workerCode.includes('self.onmessage') }
+  { name: 'Procesa mensajes', test: workerCode.includes('self.onmessage') },
+  { name: 'Consulta price_ranges', test: workerCode.includes('price_ranges') }
 ];
 
 let allWorkerChecksPass = true;
