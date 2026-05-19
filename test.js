@@ -5,7 +5,7 @@
  * Tests scraper with normalized schema: products → variants → prices
  */
 
-const { initDatabase } = require('./scraper.js');
+const { initDatabase, extractVariantsFromHTML, extractJsonObjectsByKey } = require('./scraper.js');
 const Database = require('better-sqlite3');
 
 let testsPass = 0;
@@ -506,6 +506,178 @@ try {
 } catch (error) {
   testLog(`❌ Merge test failed: ${error.message}`);
   testsFail++;
+}
+
+console.log('');
+
+// ============================================================================
+// TEST 7: extractJsonObjectsByKey — bracket-balanced extraction
+// ============================================================================
+console.log('🔍 Test 7: extractJsonObjectsByKey (balanced bracket extraction)');
+console.log('-'.repeat(70));
+
+try {
+  // Simple case: 2-level nesting
+  const simple = `{"firstSelectableVariant":{"sku":"ABC","price":{"amount":"1000.0"}}}`;
+  const results1 = extractJsonObjectsByKey(simple, 'firstSelectableVariant');
+  if (results1.length === 1 && results1[0].includes('"ABC"')) {
+    testLog('Extrae correctamente objeto con 2 niveles de anidación');
+  } else {
+    testLog('Falla con objeto de 2 niveles', true);
+  }
+
+  // Deep case: 3-level nesting (product.featuredImage) — previously broken with regex
+  const deep = `"firstSelectableVariant":{"id":"gid://shopify/ProductVariant/123","title":"Off-White","sku":"910-006252","price":{"amount":"16500.0","currencyCode":"CRC"},"availableForSale":true,"quantityAvailable":5,"product":{"id":"gid://shopify/Product/456","title":"Logitech Mouse","featuredImage":{"url":"https://cdn.shopify.com/img.jpg","altText":"img"}}}`;
+  const results2 = extractJsonObjectsByKey(deep, 'firstSelectableVariant');
+  if (results2.length === 1) {
+    try {
+      const parsed = JSON.parse(results2[0]);
+      if (parsed.sku === '910-006252' && parsed.price && parsed.price.amount === '16500.0') {
+        testLog('Extrae y parsea correctamente objeto con 3 niveles de anidación (product.featuredImage)');
+      } else {
+        testLog(`Datos incorrectos tras parseo: sku=${parsed.sku}, price.amount=${parsed.price?.amount}`, true);
+      }
+    } catch (e) {
+      testLog('Falló al parsear JSON con 3 niveles: ' + e.message, true);
+    }
+  } else {
+    testLog(`Se esperaba 1 resultado, se obtuvieron ${results2.length}`, true);
+  }
+
+  // Multiple occurrences in same HTML
+  const multi = `"firstSelectableVariant":{"sku":"SKU1","price":{"amount":"100.0"}} some text "firstSelectableVariant":{"sku":"SKU2","price":{"amount":"200.0"}}`;
+  const results3 = extractJsonObjectsByKey(multi, 'firstSelectableVariant');
+  if (results3.length === 2) {
+    testLog('Extrae múltiples ocurrencias del mismo key');
+  } else {
+    testLog(`Se esperaban 2 ocurrencias, se obtuvieron ${results3.length}`, true);
+  }
+
+  // Strings with braces inside should not confuse the parser
+  const withBracesInString = `"firstSelectableVariant":{"sku":"ABC{123}","title":"Rojo {especial}","price":{"amount":"500.0"}}`;
+  const results4 = extractJsonObjectsByKey(withBracesInString, 'firstSelectableVariant');
+  if (results4.length === 1) {
+    try {
+      const parsed = JSON.parse(results4[0]);
+      if (parsed.sku === 'ABC{123}' && parsed.title === 'Rojo {especial}') {
+        testLog('Maneja correctamente llaves dentro de strings');
+      } else {
+        testLog('Datos incorrectos con llaves en strings', true);
+      }
+    } catch (e) {
+      testLog('Falló al parsear JSON con llaves en strings: ' + e.message, true);
+    }
+  } else {
+    testLog(`Se esperaba 1 resultado con llaves en strings, se obtuvieron ${results4.length}`, true);
+  }
+
+} catch (error) {
+  testLog('extractJsonObjectsByKey test failed: ' + error.message, true);
+}
+
+console.log('');
+
+// ============================================================================
+// TEST 8: extractVariantsFromHTML — precio desde datos embebidos
+// ============================================================================
+console.log('💰 Test 8: extractVariantsFromHTML (extracción de precio desde HTML)');
+console.log('-'.repeat(70));
+
+try {
+  // Caso real: JSON con 3 niveles de anidación (como en Shopify con product.featuredImage)
+  const shopifyHtml = `
+    <script>
+    window.__st={"a":123,"url":"test"};
+    </script>
+    <script type="application/json" id="product-json">
+    {
+      "firstSelectableVariant":{
+        "id":"gid://shopify/ProductVariant/1",
+        "title":"Off-White",
+        "sku":"910-006252",
+        "price":{"amount":"16500.0","currencyCode":"CRC"},
+        "compareAtPrice":null,
+        "availableForSale":true,
+        "quantityAvailable":5,
+        "product":{
+          "id":"gid://shopify/Product/1",
+          "title":"Logitech Mouse Signature M650",
+          "handle":"logitech-mouse",
+          "featuredImage":{"url":"https://cdn.shopify.com/s/files/img.jpg","altText":"Mouse"}
+        }
+      }
+    }
+    </script>
+  `;
+
+  const variants = extractVariantsFromHTML(shopifyHtml);
+
+  if (variants.length === 1) {
+    testLog('Detecta 1 variante en HTML con JSON anidado 3 niveles');
+  } else {
+    testLog(`Se esperaba 1 variante, se obtuvieron ${variants.length}`, true);
+  }
+
+  if (variants.length > 0 && variants[0].sku === '910-006252') {
+    testLog('SKU extraído correctamente (910-006252)');
+  } else {
+    testLog('SKU incorrecto o ausente: ' + (variants[0]?.sku || 'undefined'), true);
+  }
+
+  if (variants.length > 0 && variants[0].price === 16500) {
+    testLog('Precio extraído correctamente (₡16,500)');
+  } else {
+    testLog('Precio incorrecto o NULL: ' + (variants[0]?.price || 'null') + ' — esto causaría "sin precio"', true);
+  }
+
+  if (variants.length > 0 && variants[0].name === 'Off-White') {
+    testLog('Nombre de variante extraído correctamente (Off-White)');
+  } else {
+    testLog('Nombre incorrecto: ' + (variants[0]?.name || 'undefined'), true);
+  }
+
+  // Caso Default Title: debe usar el título del producto
+  const defaultTitleHtml = `
+    "firstSelectableVariant":{"sku":"R27A-110","title":"Default Title","price":{"amount":"49900.0"},"product":{"title":"Remington Afeitadora"},"availableForSale":true}
+  `;
+  const variantsDefault = extractVariantsFromHTML(defaultTitleHtml);
+  if (variantsDefault.length > 0 && variantsDefault[0].name === 'Remington Afeitadora') {
+    testLog('Default Title usa el título del producto como nombre de variante');
+  } else {
+    testLog('Default Title no se reemplazó con título del producto: ' + (variantsDefault[0]?.name || 'undefined'), true);
+  }
+
+  if (variantsDefault.length > 0 && variantsDefault[0].price === 49900) {
+    testLog('Precio de producto simple (Remington ₡49,900) extraído correctamente');
+  } else {
+    testLog('Precio de producto simple incorrecto: ' + (variantsDefault[0]?.price || 'null'), true);
+  }
+
+  // Caso sin precio: price.amount ausente
+  const noPriceHtml = `
+    "firstSelectableVariant":{"sku":"NO-PRICE","title":"Sin Precio","price":null,"availableForSale":false}
+  `;
+  const variantsNoPrice = extractVariantsFromHTML(noPriceHtml);
+  if (variantsNoPrice.length > 0 && variantsNoPrice[0].price === null) {
+    testLog('Variante sin precio retorna price=null (se activará fallback HTTP)');
+  } else {
+    testLog('Variante sin precio no retorna null correctamente', true);
+  }
+
+  // Duplicados por SKU deben eliminarse
+  const duplicateHtml = `
+    "firstSelectableVariant":{"sku":"DUPE-SKU","title":"Rojo","price":{"amount":"1000.0"}}
+    "firstSelectableVariant":{"sku":"DUPE-SKU","title":"Rojo2","price":{"amount":"1000.0"}}
+  `;
+  const variantsDupe = extractVariantsFromHTML(duplicateHtml);
+  if (variantsDupe.length === 1) {
+    testLog('Duplicados por SKU son eliminados correctamente');
+  } else {
+    testLog(`Se esperaba 1 variante después de dedup, se obtuvieron ${variantsDupe.length}`, true);
+  }
+
+} catch (error) {
+  testLog('extractVariantsFromHTML test failed: ' + error.message, true);
 }
 
 console.log('');

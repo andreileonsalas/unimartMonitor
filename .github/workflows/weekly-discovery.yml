@@ -152,3 +152,9 @@ jobs:
           
           git diff --quiet && git diff --staged --quiet || git commit -m "Weekly discovery & recovery - $(date +'%Y-%m-%d')"
           git push
+
+      - name: Validate prices (no-price alert)
+        run: |
+          echo "🔍 Validando precios en la base de datos..."
+          node decompress_db.js
+          node validate_prices.js

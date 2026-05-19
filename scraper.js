@@ -153,21 +153,80 @@ function initDatabase() {
   return db;
 }
 
+/**
+ * Extrae el objeto JSON completo que sigue a una clave específica en el HTML.
+ * Usa conteo de profundidad de llaves para manejar cualquier nivel de anidación,
+ * ignorando llaves dentro de strings para no confundirse con JSON inválido.
+ * Retorna un array con todas las ocurrencias encontradas.
+ */
+function extractJsonObjectsByKey(html, key) {
+  const results = [];
+  const keyPattern = `"${key}":`;
+  let searchFrom = 0;
+
+  while (searchFrom < html.length) {
+    const keyIndex = html.indexOf(keyPattern, searchFrom);
+    if (keyIndex === -1) break;
+
+    // Avanzar hasta la primera llave de apertura del objeto
+    let objStart = -1;
+    for (let i = keyIndex + keyPattern.length; i < html.length; i++) {
+      if (html[i] === '{') { objStart = i; break; }
+      // Si encontramos un token que no sea espacio o ':', no es un objeto
+      if (html[i] !== ' ' && html[i] !== '\t' && html[i] !== '\n' && html[i] !== '\r') {
+        if (html[i] !== '{') break;
+      }
+    }
+
+    if (objStart === -1) {
+      searchFrom = keyIndex + keyPattern.length;
+      continue;
+    }
+
+    // Recorrer el HTML contando profundidad de llaves, respetando strings
+    let depth = 0;
+    let inString = false;
+    let escape = false;
+    let objEnd = -1;
+
+    for (let i = objStart; i < html.length; i++) {
+      const ch = html[i];
+      if (escape) { escape = false; continue; }
+      if (ch === '\\' && inString) { escape = true; continue; }
+      if (ch === '"') { inString = !inString; continue; }
+      if (inString) continue;
+
+      if (ch === '{') { depth++; }
+      else if (ch === '}') {
+        depth--;
+        if (depth === 0) { objEnd = i; break; }
+      }
+    }
+
+    if (objEnd !== -1) {
+      results.push(html.slice(objStart, objEnd + 1));
+      searchFrom = objEnd + 1;
+    } else {
+      searchFrom = keyIndex + keyPattern.length;
+    }
+  }
+
+  return results;
+}
+
 // 🚀 OPTIMIZACIÓN: Extraer TODAS las variantes de una sola llamada HTTP
 // Usando la misma lógica exitosa del battle test
 function extractVariantsFromHTML(html) {
   const variants = [];
   
   try {
-    // 🚀 USAR MÉTODO REGEX COMO EN BATTLE TEST - MÁS ROBUSTO
-    // Patrón mejorado para capturar también el contexto del producto
-    const extendedPattern = /"firstSelectableVariant":\s*(\{(?:[^{}]|\{[^{}]*\})*\})/g;
-    let match;
-    
-    // Buscar todas las variantes con firstSelectableVariant
-    while ((match = extendedPattern.exec(html)) !== null) {
+    // Extraer todos los objetos JSON de firstSelectableVariant con soporte
+    // para cualquier profundidad de anidación (fix para Shopify con product.featuredImage, etc.)
+    const jsonObjects = extractJsonObjectsByKey(html, 'firstSelectableVariant');
+
+    for (const jsonStr of jsonObjects) {
       try {
-        const variant = JSON.parse(match[1]);
+        const variant = JSON.parse(jsonStr);
         
         if (variant.sku) {
           const extractedVariant = {
@@ -489,6 +548,10 @@ function savePriceRange(db, sourceDb, variantId, newPrice, currency) {
   return true;
 }
 
+/**
+ * Scrapea un producto y guarda su precio.
+ * @returns {number} Cantidad de variantes sin precio encontradas en esta ejecución.
+ */
 async function scrapeAndSave(db, url, sourceDb = null) {
   // 🛡️ Verificar si necesitamos esperar por cooldown
   await waitForCooldown();
@@ -496,6 +559,7 @@ async function scrapeAndSave(db, url, sourceDb = null) {
   // Guarda el producto base
   let title = url.split('/').pop().replace(/-/g, ' ');
   let status404 = false;
+  let noPriceCount = 0;
   
   try {
     const res = await axios.get(url, { timeout: 20000, headers: { 'User-Agent': 'Mozilla/5.0' } });
@@ -530,7 +594,7 @@ async function scrapeAndSave(db, url, sourceDb = null) {
           last_check = datetime('now')
       `);
       updateStatus.run(urlBase, title);
-      return;
+      return 0;
     }
     
     // Producto activo - guardar/actualizar con status 'active'
@@ -546,7 +610,7 @@ async function scrapeAndSave(db, url, sourceDb = null) {
     const product = db.prepare('SELECT id FROM products WHERE url_base = ?').get(urlBase);
     if (!product) {
       log.warn('No se pudo insertar producto');
-      return;
+      return 0;
     }
 
     // Detecta variantes
@@ -668,7 +732,7 @@ async function scrapeAndSave(db, url, sourceDb = null) {
               return { success: false, variant: v.title, reason: 'price_error', error: priceError.message };
             }
           } else {
-            log.warn(`Sin precio válido para ${v.title}: ${variantPrice}`);
+            log.warn(`⚠️  SIN PRECIO: ${v.title} (url: ${variantUrl})`);
             return { success: false, variant: v.title, reason: 'no_valid_price' };
           }
         } else {
@@ -680,7 +744,8 @@ async function scrapeAndSave(db, url, sourceDb = null) {
       });
       
       // Esperar a que todas las variantes se procesen
-      await Promise.all(variantPromises);
+      const results = await Promise.all(variantPromises);
+      noPriceCount += results.filter(r => r && !r.success && r.reason === 'no_valid_price').length;
     } else {
       // Intentar como producto simple
       const simplePrice = await scrapeSimpleProduct(url);
@@ -703,12 +768,14 @@ async function scrapeAndSave(db, url, sourceDb = null) {
         
         log.info(`  💰 Producto simple: ₡${simplePrice.toFixed(0).replace(/\B(?=(\d{3})+(?!\d))/g, ',')}`);
       } else {
-        console.log('  ❌ Sin precios encontrados');
+        console.log(`  ⚠️  SIN PRECIO: ${url}`);
+        noPriceCount++;
       }
     }
   } catch (e) {
     console.log(`  ⚠ Error procesando producto: ${e.message}`);
   }
+  return noPriceCount;
 }
 
 async function main() {
@@ -856,6 +923,7 @@ async function main() {
 	
   // ⚡ Procesar productos EN PARALELO (20 simultáneos)
   let totalProcessed = 0;
+  let totalNoPriceCount = 0;
   const startTime = Date.now();
   
   for (let i = 0; i < uniqueUrlBases.length; i += PARALLEL_REQUESTS) {
@@ -865,7 +933,8 @@ async function main() {
       console.log(`[${globalIdx}/${uniqueUrlBases.length}] Scrapeando: ${url}`);
       return scrapeAndSave(db, url, sourceDb);
     });
-    await Promise.all(batchPromises);
+    const batchResults = await Promise.all(batchPromises);
+    totalNoPriceCount += batchResults.reduce((sum, count) => sum + (count || 0), 0);
     totalProcessed += batch.length;
     
     // Estadísticas cada 25 productos
@@ -889,6 +958,14 @@ async function main() {
   console.log(`Productos guardados: ${totalProducts}`);
   console.log(`Variantes guardadas: ${totalVariants}`);
   console.log(`Rangos de precio guardados: ${totalRanges}`);
+  
+  if (totalNoPriceCount > 0) {
+    console.log(`\n⚠️  ALERTA SIN PRECIO: ${totalNoPriceCount} variante(s) sin precio detectadas en este scrape.`);
+    console.log('   Busca los mensajes "⚠️  SIN PRECIO:" en el log para ver cuáles son.');
+    console.log('   Este problema puede deberse a cambios en la estructura HTML del sitio.');
+    db.close();
+    process.exit(2);
+  }
 	
   db.close();
   console.log('\n✓ Scraping completo. Revisa prices.db');
@@ -900,5 +977,7 @@ if (require.main === module) {
 
 // Exportar funciones para testing
 module.exports = {
-  initDatabase
+  initDatabase,
+  extractVariantsFromHTML,
+  extractJsonObjectsByKey
 };

@@ -90,3 +90,9 @@ jobs:
           git add prices.db.gz
           git diff --quiet && git diff --staged --quiet || git commit -m "Daily price update - $(date +'%Y-%m-%d')"
           git push
+
+      - name: Validate prices (no-price alert)
+        run: |
+          echo "🔍 Validando precios en la base de datos..."
+          node decompress_db.js
+          node validate_prices.js
