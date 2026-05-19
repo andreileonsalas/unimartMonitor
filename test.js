@@ -527,7 +527,21 @@ try {
   }
 
   // Deep case: 3-level nesting (product.featuredImage) — previously broken with regex
-  const deep = `"firstSelectableVariant":{"id":"gid://shopify/ProductVariant/123","title":"Off-White","sku":"910-006252","price":{"amount":"16500.0","currencyCode":"CRC"},"availableForSale":true,"quantityAvailable":5,"product":{"id":"gid://shopify/Product/456","title":"Logitech Mouse","featuredImage":{"url":"https://cdn.shopify.com/img.jpg","altText":"img"}}}`;
+  const deep = [
+    '"firstSelectableVariant":{',
+    '  "id":"gid://shopify/ProductVariant/123",',
+    '  "title":"Off-White",',
+    '  "sku":"910-006252",',
+    '  "price":{"amount":"16500.0","currencyCode":"CRC"},',
+    '  "availableForSale":true,',
+    '  "quantityAvailable":5,',
+    '  "product":{',
+    '    "id":"gid://shopify/Product/456",',
+    '    "title":"Logitech Mouse",',
+    '    "featuredImage":{"url":"https://cdn.shopify.com/img.jpg","altText":"img"}',
+    '  }',
+    '}'
+  ].join('\n');
   const results2 = extractJsonObjectsByKey(deep, 'firstSelectableVariant');
   if (results2.length === 1) {
     try {
@@ -586,9 +600,6 @@ console.log('-'.repeat(70));
 try {
   // Caso real: JSON con 3 niveles de anidación (como en Shopify con product.featuredImage)
   const shopifyHtml = `
-    <script>
-    window.__st={"a":123,"url":"test"};
-    </script>
     <script type="application/json" id="product-json">
     {
       "firstSelectableVariant":{

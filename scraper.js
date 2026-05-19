@@ -168,14 +168,12 @@ function extractJsonObjectsByKey(html, key) {
     const keyIndex = html.indexOf(keyPattern, searchFrom);
     if (keyIndex === -1) break;
 
-    // Avanzar hasta la primera llave de apertura del objeto
+    // Avanzar hasta la primera llave de apertura del objeto (saltando espacios)
     let objStart = -1;
     for (let i = keyIndex + keyPattern.length; i < html.length; i++) {
       if (html[i] === '{') { objStart = i; break; }
-      // Si encontramos un token que no sea espacio o ':', no es un objeto
-      if (html[i] !== ' ' && html[i] !== '\t' && html[i] !== '\n' && html[i] !== '\r') {
-        if (html[i] !== '{') break;
-      }
+      // Salir si encontramos cualquier carácter que no sea espacio en blanco
+      if (html[i] !== ' ' && html[i] !== '\t' && html[i] !== '\n' && html[i] !== '\r') break;
     }
 
     if (objStart === -1) {
