@@ -20,6 +20,7 @@
     "decompress": "node decompress_db.js",
     "optimize": "node optimize_db.js",
     "compact": "node optimize_db.js",
+    "validate": "node validate_prices.js",
     "test": "node test.js",
     "test:e2e": "node test-e2e-viewer.js",
     "test:all": "npm test && npm run test:e2e",
