@@ -1,5 +1,5 @@
 📊 REPORTE POST-SCRAPE: Resultados del Scraping
 ======================================================================
-Fecha: 2026-05-31T08:32:06.391Z
+Fecha: 2026-06-07T08:33:08.790Z
 
 📈 ESTADÍSTICAS GENERALES:
