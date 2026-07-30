@@ -28,8 +28,10 @@ async function loadDatabase() {
 		
     // Descargar y descomprimir la DB
     console.log('[viewer2] Fetching prices.db.gz...');
+    // Cache-busting horario: asegura datos frescos dentro de 1 hora tras cualquier scrape
+    const cacheKey = new Date().toISOString().slice(0, 13); // YYYY-MM-DDTHH
     const response = await Promise.race([
-      fetch('prices.db.gz'),
+      fetch('prices.db.gz?v=' + cacheKey),
       fetchTimeout
     ]);
     
@@ -287,7 +289,8 @@ function displayPriceHistory(variantId, history, isRangeSchema) {
         data: prices,
         borderColor: '#667eea',
         backgroundColor: 'rgba(102, 126, 234, 0.1)',
-        tension: 0.4,
+        tension: 0,
+        stepped: 'after',
         fill: true
       }]
     },
